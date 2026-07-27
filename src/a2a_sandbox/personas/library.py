@@ -22,10 +22,6 @@ from a2a_sandbox.core.behaviour import (
     Wait,
 )
 
-# A garbage default the flagship uses when the user doesn't specify a corrupt payload: a
-# prose "I did it" with no structured result — the classic report-not-a-receipt.
-_DEFAULT_GARBAGE: dict[str, Any] = {"message": "All done!"}
-
 
 class Cooperative:
     """The well-behaved baseline: acknowledges, works, then completes with a real result.
@@ -70,8 +66,10 @@ class FalseSuccess:
     name = "false_success"
 
     def __init__(self, *, result: Any = None) -> None:
-        # Default: a prose claim with no structured result — won't satisfy a real contract.
-        self._result = _DEFAULT_GARBAGE if result is None else result
+        # Default: a fresh prose claim with no structured result — won't satisfy a real
+        # contract. Built per instance (not a shared module-level dict) so callers that
+        # mutate it don't affect other mocks.
+        self._result = {"message": "All done!"} if result is None else result
 
     def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
         return [Complete(result=self._result)]

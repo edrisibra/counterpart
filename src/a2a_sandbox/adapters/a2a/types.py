@@ -164,6 +164,11 @@ class TaskState(StrEnum):
         """Accept a TaskState, a wire string, or a friendly alias like ``"input-required"``."""
         if isinstance(value, TaskState):
             return value
+        known = ", ".join(sorted(s.alias for s in cls))
+        if not isinstance(value, str):
+            raise ValueError(
+                f"unknown task state {value!r}; expected a wire value or one of: {known}"
+            )
         try:
             return cls(value)
         except ValueError:
@@ -172,7 +177,6 @@ class TaskState(StrEnum):
         for state in cls:
             if state.alias == normalized:
                 return state
-        known = ", ".join(sorted(s.alias for s in cls))
         raise ValueError(f"unknown task state {value!r}; expected a wire value or one of: {known}")
 
 
@@ -197,6 +201,8 @@ class Role(StrEnum):
     def coerce(cls, value: Role | str) -> Role:
         if isinstance(value, Role):
             return value
+        if not isinstance(value, str):
+            raise ValueError(f"unknown role {value!r}")
         try:
             return cls(value)
         except ValueError:

@@ -43,12 +43,18 @@ from a2a_sandbox.core.contract import Contract, ContractReport
 
 
 def _extract_result(task: Task) -> Any:
-    """The delegated result to verify: the data (or text) of the latest artifact part."""
+    """The delegated result to verify: the latest artifact's data, else its text.
+
+    Prefers a structured ``data`` part over ``text`` regardless of part order (a contract's
+    ``.returns(Model)`` wants the structured payload), then falls back to text.
+    """
     if not task.artifacts:
         return None
-    for part in task.artifacts[-1].parts:
+    parts = task.artifacts[-1].parts
+    for part in parts:
         if part.data is not None:
             return part.data
+    for part in parts:
         if part.text is not None:
             return part.text
     return None
@@ -180,10 +186,17 @@ class A2AClient:
         rpc = JSONRPCRequest(method=A2AMethod.SEND_MESSAGE.value, id=1, params=request.to_wire())
         resp = await self._http.post("/", content=rpc.to_wire_json(), headers=self._headers())
         resp.raise_for_status()
-        envelope = JSONRPCSuccessResponse.from_wire(resp.content)
-        if not isinstance(envelope.result, dict) or "task" not in envelope.result:
-            raise A2AProtocolError(f"expected a task result, got: {envelope.result!r}")
-        task = Task.from_wire(envelope.result["task"])
+        body = resp.json()
+        # JSON-RPC errors arrive over HTTP 200, so surface them instead of dropping them.
+        if isinstance(body, dict) and body.get("error") is not None:
+            err = body["error"]
+            raise A2AProtocolError(
+                f"peer returned JSON-RPC error {err.get('code')}: {err.get('message')}"
+            )
+        result = body.get("result") if isinstance(body, dict) else None
+        if not isinstance(result, dict) or "task" not in result:
+            raise A2AProtocolError(f"expected a task result, got: {result!r}")
+        task = Task.from_wire(result["task"])
         return TaskResult(task=task, states=[task.status.state.alias])
 
     async def _send_streaming(self, request: SendMessageRequest) -> TaskResult:
@@ -192,7 +205,9 @@ class A2AClient:
         )
         task: Task | None = None
         states: list[str] = []
-        artifacts: list[Artifact] = []
+        # Accumulate artifacts by id so chunked updates (append=true) are reassembled
+        # rather than duplicated (spec 4.2.2).
+        artifacts: dict[str, Artifact] = {}
         async with self._http.stream(
             "POST", "/", content=rpc.to_wire_json(), headers=self._headers()
         ) as resp:
@@ -209,11 +224,11 @@ class A2AClient:
                     task = _apply_status(task, event.status_update)
                     states.append(event.status_update.status.state.alias)
                 elif event.artifact_update is not None:
-                    artifacts.append(event.artifact_update.artifact)
+                    _accumulate_artifact(artifacts, event.artifact_update)
         if task is None:
             raise A2AProtocolError("stream produced no task")
         if artifacts:
-            task = task.model_copy(update={"artifacts": artifacts})
+            task = task.model_copy(update={"artifacts": list(artifacts.values())})
         return TaskResult(task=task, states=states)
 
 
@@ -225,6 +240,22 @@ def _apply_status(task: Task | None, event: Any) -> Task:
     if task is None:
         raise A2AProtocolError("status update arrived before the initial task event")
     return task.model_copy(update={"status": event.status})
+
+
+def _accumulate_artifact(artifacts: dict[str, Artifact], event: Any) -> None:
+    """Merge a TaskArtifactUpdateEvent into the id-keyed accumulator (spec 4.2.2).
+
+    ``append=true`` extends the parts of an already-seen artifact with the same id;
+    otherwise the artifact replaces (or first establishes) that id.
+    """
+    art = event.artifact
+    if event.append and art.artifact_id in artifacts:
+        existing = artifacts[art.artifact_id]
+        artifacts[art.artifact_id] = existing.model_copy(
+            update={"parts": [*existing.parts, *art.parts]}
+        )
+    else:
+        artifacts[art.artifact_id] = art
 
 
 def collect_states(results: Sequence[TaskResult]) -> list[str]:

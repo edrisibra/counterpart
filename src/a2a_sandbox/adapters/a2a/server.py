@@ -134,11 +134,18 @@ class A2AServer:
         return JSONResponse(self.card.to_wire())
 
     async def _handle_rpc(self, request: Request) -> Response:
+        body = await request.body()
+        # Separate a parse failure (-32700) from a well-formed-but-invalid Request (-32600),
+        # per JSON-RPC 2.0 / spec 9.5.
         try:
-            body = await request.body()
-            rpc = JSONRPCRequest.from_wire(body)
-        except Exception:
+            parsed = json.loads(body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return self._error(None, A2AErrorCode.JSON_PARSE_ERROR)
+        try:
+            rpc = JSONRPCRequest.from_wire(parsed)
+        except Exception:
+            rpc_id = parsed.get("id") if isinstance(parsed, dict) else None
+            return self._error(rpc_id, A2AErrorCode.INVALID_REQUEST)
         self.received_requests.append(rpc)
 
         handler = {
@@ -217,14 +224,18 @@ class A2AServer:
 
     async def _get_task(self, rpc: JSONRPCRequest) -> Response:
         task_id = (rpc.params or {}).get("id")
-        record = self._tasks.get(task_id) if isinstance(task_id, str) else None
+        if not isinstance(task_id, str):  # missing/non-string REQUIRED id -> bad params, not 404
+            return self._error(rpc.id, A2AErrorCode.INVALID_PARAMS)
+        record = self._tasks.get(task_id)
         if record is None:
             return self._error(rpc.id, A2AErrorCode.TASK_NOT_FOUND)
         return self._ok(rpc.id, {"task": record.task.to_wire()})
 
     async def _cancel_task(self, rpc: JSONRPCRequest) -> Response:
         task_id = (rpc.params or {}).get("id")
-        record = self._tasks.get(task_id) if isinstance(task_id, str) else None
+        if not isinstance(task_id, str):
+            return self._error(rpc.id, A2AErrorCode.INVALID_PARAMS)
+        record = self._tasks.get(task_id)
         if record is None:
             return self._error(rpc.id, A2AErrorCode.TASK_NOT_FOUND)
         if record.lifecycle.is_terminal:
@@ -252,6 +263,9 @@ class A2AServer:
                 return A2AErrorCode.TASK_NOT_FOUND  # spec 3.4.2
             if record.lifecycle.is_terminal:
                 return A2AErrorCode.UNSUPPORTED_OPERATION  # spec 3.1.1: terminal task
+            # spec 3.4.1/3.4.3: if both are given they MUST match the task's own contextId.
+            if message.context_id is not None and message.context_id != record.task.context_id:
+                return A2AErrorCode.INVALID_PARAMS
             return record
         return self._new_task(message.context_id)
 
@@ -269,11 +283,17 @@ class A2AServer:
         return record
 
     async def _run_directives(self, record: _TaskRecord, directives: Iterable[Directive]) -> None:
+        # returnImmediately background driver: a crash here would otherwise strand the task
+        # in a non-terminal state with no signal, so record an honest FAILED for GetTask.
         try:
             async for _ in self._apply_all(record, directives):
                 pass
         except DropConnection:
             pass
+        except Exception as exc:
+            self._set_state(
+                record, TaskState.FAILED, agent_text=f"internal error: {exc}", force=True
+            )
 
     async def _apply_all(
         self, record: _TaskRecord, directives: Iterable[Directive]
@@ -297,8 +317,9 @@ class A2AServer:
             yield self._status_event(record)
             return
         if isinstance(d, Deliver):
-            self._add_artifact(record, d.result, d.name)
-            yield self._artifact_event(record)
+            if d.result is not None:  # an empty delivery is a no-op (mirrors Complete)
+                self._add_artifact(record, d.result, d.name)
+                yield self._artifact_event(record)
             return
         if isinstance(d, Complete):
             if d.result is not None:

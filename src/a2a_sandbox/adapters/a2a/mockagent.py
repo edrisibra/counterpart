@@ -51,8 +51,14 @@ def serve_asgi(app: Starlette, host: str = "127.0.0.1", port: int = 0) -> Iterat
         bound_port = server.servers[0].sockets[0].getsockname()[1]
         yield f"http://{host}:{bound_port}"
     finally:
+        # Graceful shutdown first (clean, no cancellation noise). Only if a handler is stuck
+        # — e.g. a stalling persona's in-flight Wait — escalate to force_exit so the daemon
+        # thread can't hang.
         server.should_exit = True
-        thread.join(timeout=10.0)
+        thread.join(timeout=3.0)
+        if thread.is_alive():
+            server.force_exit = True
+            thread.join(timeout=7.0)
 
 
 def default_card(name: str, *, url: str, skills: list[str] | None = None) -> AgentCard:

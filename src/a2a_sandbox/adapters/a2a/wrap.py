@@ -24,20 +24,34 @@ from a2a_sandbox.core.behaviour import Complete, Directive, Fail, SessionContext
 AgentCallable = Callable[..., Any] | Callable[..., Awaitable[Any]]
 
 
+def _accepts_two_positional(fn: AgentCallable) -> bool:
+    """True if ``fn`` can take a second positional argument (a fixed param or ``*args``)."""
+    try:
+        params = list(inspect.signature(fn).parameters.values())
+    except (TypeError, ValueError):
+        return False  # builtins/C callables with no introspectable signature: pass text only
+    positional = sum(
+        1
+        for p in params
+        if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    )
+    has_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in params)
+    return positional >= 2 or has_varargs
+
+
 class _CallableBehaviour:
     """Adapts a user callable to the behaviour protocol: call it, complete with its result."""
 
     def __init__(self, fn: AgentCallable) -> None:
         self._fn = fn
-        # Call with (text, data) if the callable accepts two positional args, else (text,).
-        try:
-            self._arity = len(inspect.signature(fn).parameters)
-        except (TypeError, ValueError):
-            self._arity = 1
+        # Pass turn.data as a 2nd positional arg only if the callable actually accepts one
+        # (counting POSITIONAL_ONLY/POSITIONAL_OR_KEYWORD, or any *args). Keyword-only and
+        # variadic signatures no longer get mis-invoked.
+        self._pass_data = _accepts_two_positional(fn)
 
     async def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
         try:
-            out = self._fn(turn.text, turn.data) if self._arity >= 2 else self._fn(turn.text)
+            out = self._fn(turn.text, turn.data) if self._pass_data else self._fn(turn.text)
             if inspect.isawaitable(out):
                 out = await out
         except Exception as exc:  # a failing agent becomes a failed task, not a server 500

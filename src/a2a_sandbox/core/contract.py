@@ -162,6 +162,9 @@ class Contract(Generic[ReceiptT]):
                 f"result did not match {name}: {len(errors)} error(s); first: {errors[0]['msg']!r}"
             )
             return None, CheckResult("returns", False, FailureCategory.STRUCTURE, detail)
+        except Exception as exc:
+            detail = f"parsing raised {type(exc).__name__}: {exc}"
+            return None, CheckResult("returns", False, FailureCategory.STRUCTURE, detail)
         return receipt, CheckResult("returns", True, FailureCategory.STRUCTURE)
 
     def verify(
