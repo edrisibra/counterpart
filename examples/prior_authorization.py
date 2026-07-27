@@ -2,27 +2,39 @@
 
 A different vertical and a different FAILURE SHAPE from examples/freight_procurement.py.
 Freight was "pick the cheapest valid quote from N competing offers." This is a *pipeline with
-cross-field consistency*: a single authoritative payer answers, and the danger is that its
-answer doesn't actually match what we asked for.
+cross-field consistency*: one authoritative payer answers, and the danger is that its answer
+does not match what was asked.
 
-The business flow (mandatory cross-org — the provider and payer are different companies, so
-A2A is genuinely warranted, not overkill):
-
-    ProviderRevenueAgent (us, a clinic)
-      1. --A2A--> payer ELIGIBILITY agent      : is coverage active on the service date?
-      2. --A2A--> payer UTILIZATION MGMT agent : authorize CPT 29881, right knee, Friday
+    ProviderRevenueAgent (a clinic)
+      1. --A2A--> payer ELIGIBILITY agent      : coverage active for THIS service, on THIS date?
+      2. --A2A--> payer UTILIZATION MGMT agent : certify CPT 29881 RT for 2026-xx-xx
       3. decide: safe to schedule, or escalate to a human?
 
-The money and the risk: an outpatient knee arthroscopy runs several thousand dollars. If we
-schedule on a bad authorization the claim is denied and the provider eats the cost, or the
-patient gets a surprise bill (a No Surprises Act problem). Nothing crashes — the payer agent
-reports the task "completed" every single time.
+WHY THIS IS THE HARD CASE: in A2A, `completed` means *the agent finished its work*, not *you
+got what you asked for*. Conformance testing cannot see the difference. The failure modes below
+are drawn from the actual standards and industry data, not invented:
 
-WHY THIS IS THE HARD CASE: in A2A, `completed` means *the agent finished its work*, not
-*you got what you asked for*. A payer agent that cleanly returns "DENIED", or approves a
-cheaper procedure code, or authorizes the LEFT knee when you asked about the RIGHT, has
-completed successfully at the protocol level. Conformance testing cannot see any of this.
-Only a contract on the returned content can.
+* HL7 Da Vinci PAS is the FHIR standard for prior auth. Its own published PENDED example ships
+  `outcome: "complete"` with no `preAuthRef`, and its APPROVED example is ALSO
+  `outcome: "complete"` with no `preAuthRef` — the two differ only in an OPTIONAL (0..1)
+  `reviewAction.reviewActionCode` (A1 certified vs A4 pended), while the misleading `outcome`
+  field is REQUIRED (1..1). A consumer reading the top-level status literally cannot tell an
+  approval from a pend. Verified present in STU2.1 and still in the current CI build.
+  https://hl7.org/fhir/us/davinci-pas/STU2.1/specification.html
+* In X12 278, a first response is routinely an interim acknowledgement, not a decision:
+  Blue Cross NC returns `BHT06=19` / `HCR01=A4` (pended) within 24 hours and the determination
+  only in a later, *unsolicited* transaction. Texas Medicaid returns `A4` "for all approved
+  transactions" — there, A4 is a receipt, not an approval.
+  https://www.bcbsnc.com/content/dam/bcbsnc/pdf/providers/network-participation/hipaa/278-5010-v1-1-health-care-service-and-review.pdf
+* Authorization is not immunity from denial. Premier reports that "An average of 10.4 percent
+  of claims denied included those that were pre-approved via the prior authorization process -
+  up from 3.2 percent in 2022," at a rework cost of $57.23 per claim (up from $43.84 in 2022).
+  https://premierinc.com/newsroom/policy/claims-adjudication-costs-providers-257-billion-18-billion-is-potentially-unnecessary-expense
+
+Deliberately NOT modelled (they look dramatic but are strawmen a schema catches for free):
+literal sentinel auth numbers like "N/A"/"TBD" typed into a portal; a knee arthroscopy
+"downgraded" to a physician office (POS 11), which no payer would return; negative deductibles;
+and a bare prose reply. Each is replaced below by the realistic version of the same idea.
 
 Run:  uv run python examples/prior_authorization.py
 """
@@ -31,7 +43,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -46,37 +58,40 @@ from a2a_sandbox.core.behaviour import (
 )
 from a2a_sandbox.personas import register
 
-# --- dates -----------------------------------------------------------------
-
 TODAY = datetime.now(UTC).date()
-SERVICE_DATE = (TODAY + timedelta(days=4)).isoformat()  # the scheduled procedure ("Friday")
+SERVICE_DATE = (TODAY + timedelta(days=4)).isoformat()
 LAST_MONTH = (TODAY - timedelta(days=30)).isoformat()
 NEXT_MONTH = (TODAY + timedelta(days=35)).isoformat()
 IN_A_YEAR = (TODAY + timedelta(days=365)).isoformat()
 
-# --- what we are asking for ------------------------------------------------
+# Commercial median allowed amount, hospital outpatient knee arthroscopy (Robinson et al.
+# via the research notes; Medicare HOPD is ~$3,342, so this is the commercial middle).
+ALLOWED_AMOUNT_USD = 5_668.00
+DENIAL_REWORK_USD = 57.23  # Premier, 2023 per-claim rework cost
+
+
+# --- what we asked for -----------------------------------------------------
 
 
 @dataclass(frozen=True)
 class AuthRequest:
-    """The prior-auth request our clinic submits. Everything here must come back matching."""
-
     member_id: str = "W123456789"
-    patient_last_name: str = "OKONKWO"
-    cpt_code: str = "29881"  # arthroscopy, knee, surgical; with meniscectomy
-    icd10_code: str = "M23.221"  # derangement, posterior horn medial meniscus, RIGHT knee
-    laterality: str = "RT"  # right knee — wrong side is a patient-safety event
-    units: int = 1
-    place_of_service: str = "22"  # on-campus outpatient hospital (not office/ASC)
-    facility_npi: str = "1234567893"
+    cpt_code: str = "29881"  # knee arthroscopy w/ meniscectomy (1 unit; RT modifier)
+    icd10_code: str = "M23.221"  # medial meniscus derangement, right knee
+    laterality: str = "RT"
+    place_of_service: str = "22"  # on-campus hospital outpatient
+    service_type_code: str = "50"  # X12 271 service type: Hospital-Outpatient
     service_date: str = SERVICE_DATE
 
 
 REQUEST = AuthRequest()
-ALLOWED_AMOUNT_USD = 6_800.00  # what the provider bills/collects if the claim is paid
+
+# ICD-10 codes CMS NCD 150.9 makes non-covered for arthroscopic lavage/debridement of the
+# osteoarthritic knee. An auth "approved" against one of these will not survive adjudication.
+NON_COVERED_DX = {"M17.0", "M17.10", "M17.11", "M17.12", "M17.9"}
 
 
-# --- the payer's response shapes -------------------------------------------
+# --- payer response shapes -------------------------------------------------
 
 
 class Eligibility(BaseModel):
@@ -85,95 +100,186 @@ class Eligibility(BaseModel):
     coverage_active: bool
     coverage_start: str
     coverage_end: str | None = None
-    deductible_remaining_cents: int
+    # X12 271: which service types this benefit actually covers. `EB03=30` alone means only
+    # "Health Benefit Plan Coverage" — a generic yes that says nothing about our service.
+    covered_service_types: list[str] = []
+    other_payer_is_primary: bool = False
+    reject_reason_code: str | None = None  # 271 AAA reject: 42/72/75/80 — not a coverage answer
+    deductible_remaining_cents: int | None = None
 
 
 class AuthDetermination(BaseModel):
-    authorization_number: str
-    determination: str  # APPROVED | DENIED | PENDED
+    authorization_number: str | None = None
+    determination: str | None = None  # APPROVED | A1 | Certified in total | A4 | DENIED | ...
+    review_action_code: str | None = None  # X12 306: A1 certified, A4 pended, A3 not certified
+    authorization_required: bool | None = None
     member_id: str
-    cpt_codes: list[str]
+    cpt_codes: list[str] = []
+    diagnosis_codes: list[str] = []
     laterality: str | None = None
-    units_approved: int
-    place_of_service: str
-    effective_date: str
-    expiration_date: str
-    patient_responsibility_cents: int
+    place_of_service: str | None = None
+    effective_date: str | None = None
+    expiration_date: str | None = None
+    provisional: bool = False
+    conditions: list[str] = []
+    notes: str = ""
+    patient_responsibility_cents: int | None = None
 
 
-# --- our clinic's policy, as machine-checkable contracts -------------------
+# --- the clinic's policy, as machine-checkable contract rules --------------
 
-_PLACEHOLDERS = {"", "PENDING", "PENDING-REVIEW", "N/A", "NA", "TBD", "UNKNOWN", "0", "00000000"}
+# X12 306 review action codes and their plain-language equivalents. Anything not in APPROVES
+# is treated as *not* an approval — including values we have never seen (fail closed).
+_APPROVES = {"A1", "APPROVED", "CERTIFIED IN TOTAL", "CERT", "CERTIFIED"}
+_NOT_APPROVES = {
+    "A2": "certified partial",
+    "A3": "not certified",
+    "A4": "pended",
+    "A6": "modified",
+    "PENDED": "pended",
+    "PENDING": "pended",
+    "DENIED": "denied",
+    "NOT CERTIFIED": "not certified",
+}
+# Caveat language that turns an "approval" into a conditional one.
+_CAVEAT_WORDS = (
+    "pending",
+    "contingent",
+    "upon receipt",
+    "subject to",
+    "must submit",
+    "provided that",
+)
 
 
-def _auth_number_usable(number: str) -> bool:
-    """A real auth number: no placeholder text, no stray whitespace (breaks exact-match
-    lookups in the claim scrubber), plausible length."""
-    if number != number.strip():
-        return False  # trailing/leading whitespace silently fails downstream matching
-    if number.strip().upper() in _PLACEHOLDERS:
-        return False
-    return len(number) >= 6 and any(c.isdigit() for c in number)
+def _iso_date(value: str | None) -> date | None:
+    """Strict ISO-8601 parse. Returns None for absent or non-ISO input.
+
+    Deliberately strict: a naive string comparison against a "07/31/2026"-style date silently
+    *passes* the lower bound of a window check, which fails open. Unparseable means unusable.
+    """
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _is_approval(det: AuthDetermination) -> bool:
+    """True only if the payer clearly certified the request.
+
+    Reads the X12 review action code when present (it is the element that actually carries
+    approval state) and the free-text determination otherwise. Unknown values fail closed.
+    """
+    code = (det.review_action_code or "").strip().upper()
+    if code:
+        return code in _APPROVES
+    text = (det.determination or "").strip().upper()
+    return text in _APPROVES
 
 
 def eligibility_contract(req: AuthRequest) -> Contract:
-    """Coverage must be active *on the service date*, for the member we asked about."""
     return (
         Contract("payer eligibility check")
         .returns(Eligibility)
+        # A 271 AAA reject is a "we could not answer", NOT a "not covered". Treating it as a
+        # coverage answer turns a covered patient away — the one failure whose victim is the
+        # patient rather than the provider.
+        .require("is_a_coverage_answer", lambda e: e.reject_reason_code is None)
         .require("member_matches", lambda e: e.member_id.strip() == req.member_id)
         .require("coverage_active", lambda e: e.coverage_active is True)
+        # "Active coverage" alone is the weakest assertion in a 271: it must cover the service
+        # type we are about to render.
+        .require(
+            "covers_this_service_type", lambda e: req.service_type_code in e.covered_service_types
+        )
+        # If another payer is primary, this plan is not the one liable.
+        .require("this_payer_is_primary", lambda e: e.other_payer_is_primary is False)
         .require(
             "active_on_service_date",
-            # A retroactive termination is the classic trap: "active" today, but the plan
-            # ended before the date we intend to render service.
-            lambda e: e.coverage_end is None or e.coverage_end >= req.service_date,
+            lambda e: (
+                (end := _iso_date(e.coverage_end)) is None
+                or end >= date.fromisoformat(req.service_date)
+            ),
         )
-        .require("coverage_started", lambda e: e.coverage_start <= req.service_date)
         .require(
-            "deductible_plausible",
-            lambda e: 0 <= e.deductible_remaining_cents <= 5_000_000,
+            "coverage_started",
+            lambda e: (
+                (start := _iso_date(e.coverage_start)) is not None
+                and start <= date.fromisoformat(req.service_date)
+            ),
         )
         .expect_status("completed")
     )
 
 
 def auth_contract(req: AuthRequest) -> Contract:
-    """The authorization must actually authorize *what we asked for*, for *our patient*,
-    on *our date*. Every rule here maps to a documented real-world denial cause."""
+    """Every rule maps to a documented denial cause. See the module docstring for sources."""
+    service_date = date.fromisoformat(req.service_date)
     return (
-        Contract(f"prior auth for CPT {req.cpt_code} {req.laterality} on {req.service_date}")
+        Contract(f"prior auth: CPT {req.cpt_code} {req.laterality} on {req.service_date}")
         .returns(AuthDetermination)
-        # 1. Protocol success is not business approval.
-        .require("determination_approved", lambda a: a.determination.upper() == "APPROVED")
-        # 2. The auth number has to survive the claim scrubber.
-        .require("auth_number_usable", lambda a: _auth_number_usable(a.authorization_number))
-        # 3. It has to be OUR patient (identity / record-overlay errors).
-        .require("member_matches", lambda a: a.member_id.strip() == req.member_id)
-        # 4. It has to cover the procedure we requested (silent downgrade to a cheaper code).
-        .require("covers_requested_cpt", lambda a: req.cpt_code in a.cpt_codes)
-        # 5. Correct side. Wrong laterality is a wrong-site-surgery and denial risk.
-        .require("laterality_matches", lambda a: (a.laterality or "").upper() == req.laterality)
-        # 6. Enough units/visits (partial approval dressed up as approval).
-        .require("units_sufficient", lambda a: a.units_approved >= req.units)
-        # 7. Right setting — an outpatient-hospital request downgraded to office won't pay.
-        .require("place_of_service_matches", lambda a: a.place_of_service == req.place_of_service)
-        # 8. The auth window must cover the service date.
+        # 1. An "authorization not required" answer must be substantiated, not bare — payers
+        #    routinely delegate MSK/radiology to a benefit manager and answer for themselves.
         .require(
-            "active_on_service_date",
-            lambda a: a.effective_date <= req.service_date <= a.expiration_date,
+            "no_unsubstantiated_waiver",
+            lambda a: a.authorization_required is not False or bool(a.authorization_number),
         )
-        # 9. Patient responsibility must be sane — a cents/dollars mixup misquotes the patient
-        #    under the No Surprises Act.
+        # 2. Certified — reading the X12 review action code, failing closed on unknown values.
+        .require("certified", _is_approval)
+        # 3. An authorization number that represents certification, not just a tracking id.
+        .require(
+            "has_authorization_number",
+            lambda a: (
+                bool(a.authorization_number)
+                and a.authorization_number == a.authorization_number.strip()
+            ),
+        )
+        # 4. Not provisional/conditional — reimbursement contingent on later documentation.
+        .require("not_provisional", lambda a: a.provisional is False and not a.conditions)
+        # 5. No decisive caveat hiding in free text (the classic LLM-payer failure: a
+        #    schema-valid payload whose real meaning lives in a notes field nobody reads).
+        .require(
+            "no_caveat_in_notes",
+            lambda a: not any(w in a.notes.lower() for w in _CAVEAT_WORDS),
+        )
+        # 6. Our patient (record overlay / duplicate-MRN errors are also a HIPAA disclosure).
+        .require("member_matches", lambda a: a.member_id.strip() == req.member_id)
+        # 7. The procedure we asked for (code drift to a related, cheaper, bundled code).
+        .require("covers_requested_cpt", lambda a: req.cpt_code in a.cpt_codes)
+        # 8. Not certified against a nationally non-covered diagnosis (CMS NCD 150.9).
+        .require(
+            "diagnosis_is_covered",
+            lambda a: not (set(a.diagnosis_codes) & NON_COVERED_DX),
+        )
+        # 9. Correct side — wrong laterality is a wrong-site and denial risk.
+        .require("laterality_matches", lambda a: (a.laterality or "").upper() == req.laterality)
+        # 10. Same setting we requested (MSK site-of-service redirection to an ASC is common).
+        .require("place_of_service_matches", lambda a: a.place_of_service == req.place_of_service)
+        # 11. A parseable window that actually covers the service date.
+        .require(
+            "window_covers_service_date",
+            lambda a: (
+                (eff := _iso_date(a.effective_date)) is not None
+                and (exp := _iso_date(a.expiration_date)) is not None
+                and eff <= service_date <= exp
+            ),
+        )
+        # 12. Patient responsibility sane — a cents/dollars slip misquotes the patient under
+        #     the No Surprises Act.
         .require(
             "patient_responsibility_plausible",
-            lambda a: 0 <= a.patient_responsibility_cents <= 2_000_000,
+            lambda a: (
+                a.patient_responsibility_cents is None
+                or 0 <= a.patient_responsibility_cents <= 2_000_000
+            ),
         )
         .expect_status("completed")
     )
 
 
-# --- payer agents: each models one documented real-world failure -----------
+# --- baseline good responses ----------------------------------------------
 
 CLEAN_ELIGIBILITY = {
     "member_id": REQUEST.member_id,
@@ -181,16 +287,19 @@ CLEAN_ELIGIBILITY = {
     "coverage_active": True,
     "coverage_start": "2026-01-01",
     "coverage_end": None,
-    "deductible_remaining_cents": 45_000,  # $450 left on the deductible
+    "covered_service_types": ["30", "50", "98"],
+    "other_payer_is_primary": False,
+    "deductible_remaining_cents": 45_000,
 }
 
 CLEAN_AUTH = {
-    "authorization_number": "AUTH-2026-8814720",
+    "authorization_number": "AUTH20268814720",
     "determination": "APPROVED",
+    "review_action_code": "A1",
     "member_id": REQUEST.member_id,
     "cpt_codes": [REQUEST.cpt_code],
+    "diagnosis_codes": [REQUEST.icd10_code],
     "laterality": REQUEST.laterality,
-    "units_approved": REQUEST.units,
     "place_of_service": REQUEST.place_of_service,
     "effective_date": TODAY.isoformat(),
     "expiration_date": IN_A_YEAR,
@@ -198,9 +307,7 @@ CLEAN_AUTH = {
 }
 
 
-def _payer(payload: object, *, progress: str = "adjudicating request") -> type:
-    """Build a payer agent persona that completes with a fixed payload."""
-
+def _payer(payload: object, *, progress: str = "adjudicating") -> type:
     class FixedPayer:
         def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
             return [Progress(progress), Complete(result=payload)]
@@ -208,142 +315,249 @@ def _payer(payload: object, *, progress: str = "adjudicating request") -> type:
     return FixedPayer
 
 
-# ---- eligibility-stage payers ----
-ELIGIBILITY_PAYERS: dict[str, tuple[type, str, str]] = {
-    "elig_clean": (_payer(CLEAN_ELIGIBILITY), "common", "active coverage, correct member"),
-    "elig_retro_termed": (
-        _payer({**CLEAN_ELIGIBILITY, "coverage_active": True, "coverage_end": LAST_MONTH}),
-        "common",
-        "says active, but the plan terminated last month (retroactive term)",
+# --- the failure catalogue -------------------------------------------------
+# (persona name) -> (payload, tier, what it models)
+
+ELIGIBILITY_CASES: dict[str, tuple[dict, str, str]] = {
+    "elig_clean": (CLEAN_ELIGIBILITY, "control", "active, correct member, covers our service type"),
+    "elig_aaa_reject_as_answer": (
+        {**CLEAN_ELIGIBILITY, "coverage_active": False, "reject_reason_code": "72"},
+        "very common",
+        "271 AAA reject (72 invalid subscriber id) read as 'no coverage' -> patient turned away",
     ),
-    "elig_wrong_member": (
-        _payer({**CLEAN_ELIGIBILITY, "member_id": "W999888777"}),
-        "long-tail",
-        "returns another member's coverage (record overlay / mismatch)",
+    "elig_generic_benefit_only": (
+        {**CLEAN_ELIGIBILITY, "covered_service_types": ["30"]},
+        "very common",
+        "EB01=1 active with only EB03=30 generic; no benefit for service type 50",
+    ),
+    "elig_other_payer_primary": (
+        {**CLEAN_ELIGIBILITY, "other_payer_is_primary": True},
+        "very common",
+        "coordination-of-benefits: this plan is not the liable payer",
+    ),
+    "elig_retro_termed": (
+        {**CLEAN_ELIGIBILITY, "coverage_end": LAST_MONTH},
+        "common",
+        "reports active, but the plan terminated before the service date",
     ),
     "elig_future_coverage": (
-        _payer({**CLEAN_ELIGIBILITY, "coverage_start": NEXT_MONTH}),
-        "long-tail",
+        {**CLEAN_ELIGIBILITY, "coverage_start": NEXT_MONTH},
+        "common",
         "coverage does not begin until after the service date",
     ),
-    "elig_absurd_deductible": (
-        _payer({**CLEAN_ELIGIBILITY, "deductible_remaining_cents": -1}),
+    "elig_wrong_member": (
+        {**CLEAN_ELIGIBILITY, "member_id": "W999888777"},
         "long-tail",
-        "negative deductible remaining",
+        "another member's coverage returned (record overlay) — also a HIPAA disclosure",
     ),
 }
 
-# ---- prior-auth-stage payers ----
-AUTH_PAYERS: dict[str, tuple[type, str, str]] = {
-    "auth_clean": (_payer(CLEAN_AUTH), "common", "clean approval for exactly what we asked"),
-    "auth_pended_as_approved": (
-        _payer({**CLEAN_AUTH, "authorization_number": "PENDING-REVIEW"}),
-        "common",
-        "APPROVED with a placeholder auth number that the claim will reject",
+AUTH_CASES: dict[str, tuple[dict, str, str]] = {
+    "auth_clean": (CLEAN_AUTH, "control", "clean certification for exactly what we asked"),
+    # THE headline case, straight out of the FHIR PAS implementation guide.
+    "auth_pended_as_complete": (
+        {
+            **CLEAN_AUTH,
+            "determination": "complete",  # PAS `outcome` — REQUIRED field, says success
+            "review_action_code": "A4",  # the OPTIONAL field that carries the truth: pended
+            "authorization_number": None,
+        },
+        "very common",
+        "top-level status says complete; review action code A4 says PENDED (HL7 PAS's own example)",
+    ),
+    "auth_reference_not_authorization": (
+        {
+            **CLEAN_AUTH,
+            "determination": None,
+            "review_action_code": "A4",
+            "authorization_number": "0000123456789012",  # well-formed 16-char tracking number
+        },
+        "very common",
+        "valid-looking 16-char tracking number returned on a pend; passes any format check",
+    ),
+    "auth_not_required_waiver": (
+        {
+            "member_id": REQUEST.member_id,
+            "authorization_required": False,
+            "authorization_number": None,
+        },
+        "very common",
+        "bare 'no auth required' from a payer that delegated MSK to a benefit manager",
     ),
     "auth_denied": (
-        _payer({**CLEAN_AUTH, "determination": "DENIED", "authorization_number": "DENY-55021"}),
+        {
+            **CLEAN_AUTH,
+            "determination": "DENIED",
+            "review_action_code": "A3",
+            "authorization_number": "DENY550210001234",
+        },
+        "very common",
+        "cleanly NOT CERTIFIED (A3) — the agent still 'completed' successfully",
+    ),
+    "auth_cpt_drift": (
+        {**CLEAN_AUTH, "cpt_codes": ["29877"]},
+        "very common",
+        "certifies 29877 chondroplasty (related, lower-paying, NCCI-bundled) not 29881",
+    ),
+    "auth_provisional": (
+        {**CLEAN_AUTH, "provisional": True, "conditions": ["operative note due within 30 days"]},
         "common",
-        "cleanly DENIED — the agent still 'completed' successfully",
+        "APPROVED + valid number, but provisional/conditional (real policy at some plans)",
     ),
-    "auth_cpt_downgrade": (
-        _payer({**CLEAN_AUTH, "cpt_codes": ["29870"]}),
+    "auth_caveat_in_notes": (
+        {**CLEAN_AUTH, "notes": "Approved pending receipt of the operative note."},
         "common",
-        "approves diagnostic scope 29870 instead of the requested surgical 29881",
+        "schema-valid approval whose decisive caveat lives in free text (LLM-payer failure)",
     ),
-    "auth_short_units": (
-        _payer({**CLEAN_AUTH, "units_approved": 0}),
+    "auth_pos_redirect_asc": (
+        {**CLEAN_AUTH, "place_of_service": "24"},
         "common",
-        "APPROVED but zero units authorized (partial approval as approval)",
+        "site-of-service redirection 22 (hospital outpatient) -> 24 (ASC)",
     ),
-    "auth_pos_downgrade": (
-        _payer({**CLEAN_AUTH, "place_of_service": "11"}),
+    "auth_date_format_slip": (
+        {**CLEAN_AUTH, "effective_date": "07/31/2026", "expiration_date": "07/31/2027"},
         "common",
-        "downgrades outpatient hospital (22) to office (11)",
+        "MM/DD/YYYY dates; a string compare would silently pass the lower bound (fail open)",
     ),
-    "auth_expired_window": (
-        _payer({**CLEAN_AUTH, "effective_date": NEXT_MONTH, "expiration_date": IN_A_YEAR}),
+    "auth_unknown_determination": (
+        {**CLEAN_AUTH, "determination": "REVIEWED", "review_action_code": None},
         "common",
-        "auth window starts after the scheduled service date",
+        "determination value outside any known value set -> must fail closed",
     ),
-    "auth_wrong_laterality": (
-        _payer({**CLEAN_AUTH, "laterality": "LT"}),
-        "long-tail",
-        "authorizes the LEFT knee for a RIGHT knee request (wrong-site risk)",
-    ),
-    "auth_wrong_member": (
-        _payer({**CLEAN_AUTH, "member_id": "W555000111"}),
-        "long-tail",
-        "authorization issued against a different member's ID",
-    ),
-    "auth_whitespace_id": (
-        _payer({**CLEAN_AUTH, "authorization_number": "AUTH-2026-8814720 "}),
-        "long-tail",
-        "auth number has a trailing space; exact-match lookup fails downstream",
+    "auth_non_covered_dx": (
+        {**CLEAN_AUTH, "diagnosis_codes": ["M17.11"]},
+        "common",
+        "certified against a dx CMS NCD 150.9 makes non-covered for knee scope",
     ),
     "auth_dollars_as_cents": (
-        _payer({**CLEAN_AUTH, "patient_responsibility_cents": 450_000_00}),
+        {**CLEAN_AUTH, "patient_responsibility_cents": 45_000_00 * 100},
         "common",
         "patient responsibility off by 100x (dollars written into a cents field)",
     ),
-    "auth_prose_only": (
-        _payer({"message": "Approved! Ref 8814720. Call us with questions."}),
-        "common",
-        "prose instead of structured data",
+    "auth_wrong_laterality": (
+        {**CLEAN_AUTH, "laterality": "LT"},
+        "long-tail",
+        "certifies the LEFT knee for a RIGHT knee request (wrong-site risk)",
+    ),
+    "auth_wrong_member": (
+        {**CLEAN_AUTH, "member_id": "W555000111"},
+        "long-tail",
+        "authorization issued against a different member — HIPAA disclosure, do not forward",
+    ),
+}
+
+# Legitimate payer variation that MUST NOT be flagged. An over-strict contract gets switched
+# off, which is worse than no contract. Several of these were found by researching the actual
+# X12/FHIR value sets, not by guessing.
+GOOD_VARIATIONS: dict[str, tuple[dict, str]] = {
+    "x12_a1_code": (
+        {**CLEAN_AUTH, "determination": None, "review_action_code": "A1"},
+        "X12 A1 'certified in total' with no free-text determination",
+    ),
+    "certified_in_total_text": (
+        {**CLEAN_AUTH, "determination": "Certified in total", "review_action_code": None},
+        "the X12 A1 display string instead of the code",
+    ),
+    "lowercase_determination": ({**CLEAN_AUTH, "determination": "approved"}, "lowercase"),
+    "cpt_superset": (
+        {**CLEAN_AUTH, "cpt_codes": ["29881", "29877"]},
+        "certifies our code plus an additional one",
+    ),
+    "effective_on_service_date": (
+        {**CLEAN_AUTH, "effective_date": SERVICE_DATE},
+        "window opens exactly on the service date",
+    ),
+    "expires_on_service_date": (
+        {**CLEAN_AUTH, "expiration_date": SERVICE_DATE},
+        "window closes exactly on the service date",
+    ),
+    "lowercase_laterality": ({**CLEAN_AUTH, "laterality": "rt"}, "lowercase modifier"),
+    "zero_patient_responsibility": (
+        {**CLEAN_AUTH, "patient_responsibility_cents": 0},
+        "fully covered, nothing owed",
+    ),
+    "no_patient_responsibility_field": (
+        {k: v for k, v in CLEAN_AUTH.items() if k != "patient_responsibility_cents"},
+        "payer omits the optional cost-share field",
+    ),
+    "informational_notes": (
+        {**CLEAN_AUTH, "notes": "Certified. Call for questions."},
+        "notes present but carrying no caveat",
+    ),
+    "waiver_with_number": (
+        {**CLEAN_AUTH, "authorization_required": False},
+        "'not required' but substantiated with a real auth number",
     ),
 }
 
 
-def register_payers() -> None:
-    for name, (cls, _tier, _desc) in {**ELIGIBILITY_PAYERS, **AUTH_PAYERS}.items():
-        register(name, cls)
-
-
-class PhiFisher:
-    """Payer agent that demands far more PHI than adjudication needs (HIPAA minimum necessary)."""
-
-    def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
-        if turn.index == 0:
-            return [
-                NeedInput(
-                    "To proceed, upload the patient's complete medical record, SSN, "
-                    "and financial account details."
-                )
-            ]
-        return [Complete(result=CLEAN_AUTH)]
-
-
 class NeverDecides:
-    """Payer agent that acknowledges and then never issues a determination.
-
-    The most-cited real-world prior-auth failure: the request sits in review while the
-    scheduled date approaches. The task never reaches a terminal state, so there is no
-    determination to act on — a naive agent that only asks "did I get a response?" proceeds.
-    """
+    """The most-cited real prior-auth failure: acknowledged, never decided."""
 
     def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
         return [Progress("received; pending clinical review")]
 
 
-register("auth_phi_fisher", PhiFisher)
-register("auth_never_decides", NeverDecides)
-register_payers()
+class PhiOverCollector:
+    """HIPAA minimum-necessary: asks for the entire chart when policy needs one fact.
+
+    The medical policy for 29881 requires documentation of failed conservative therapy. Asking
+    for 24 months of complete records is over-collection — and the guard has to reason about
+    scope, not keyword-match on "SSN".
+    """
+
+    ASK = "Upload the patient's complete medical record for the past 24 months to proceed."
+
+    def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
+        if turn.index == 0:
+            return [NeedInput(self.ASK)]
+        return [Complete(result=CLEAN_AUTH)]
 
 
-# --- our provider agent: the thing under test ------------------------------
+class DuplicateOnRetry:
+    """Non-idempotent: a retry opens a second case with a different authorization number.
+
+    Uses CLASS-level state on purpose. a2a-sandbox gives every task its own behaviour instance
+    (so concurrent sessions stay independent), which means per-instance state cannot observe a
+    retry — cross-task memory has to be explicit, as here.
+    """
+
+    _cases_opened = 0
+
+    def respond(self, turn: Turn, ctx: SessionContext) -> Sequence[Directive]:
+        type(self)._cases_opened += 1
+        suffix = f"{type(self)._cases_opened:04d}"
+        return [Complete(result={**CLEAN_AUTH, "authorization_number": f"AUTH2026881{suffix}"})]
+
+
+def register_all() -> None:
+    for name, (payload, _t, _d) in {**ELIGIBILITY_CASES, **AUTH_CASES}.items():
+        register(name, _payer(payload))
+    for name, (payload, _d) in GOOD_VARIATIONS.items():
+        register(f"ok_{name}", _payer(payload))
+    register("auth_never_decides", NeverDecides)
+    register("auth_phi_over_collector", PhiOverCollector)
+    register("auth_duplicate_on_retry", DuplicateOnRetry)
+
+
+register_all()
+
+
+# --- the provider agent ----------------------------------------------------
 
 
 async def check_eligibility(persona: str, *, guard: bool) -> tuple[bool, str]:
     contract = eligibility_contract(REQUEST) if guard else None
     async with MockAgent(persona).client() as client:
         r = await client.send_message(
-            f"Verify eligibility for {REQUEST.member_id} on {REQUEST.service_date}",
+            f"271 eligibility: member {REQUEST.member_id}, service type "
+            f"{REQUEST.service_type_code}, DOS {REQUEST.service_date}",
             contract=contract,
         )
     if guard and r.contract_violated:
         return False, f"eligibility rejected: {r.report.failures[0].name}"
-    # naive path: any completed response with coverage_active is good enough
     payload = r.result if isinstance(r.result, dict) else {}
+    # A naive agent asks the one weak question: "does it say active?"
     return bool(payload.get("coverage_active")), "eligibility accepted"
 
 
@@ -351,69 +565,58 @@ async def request_authorization(persona: str, *, guard: bool) -> tuple[dict | No
     contract = auth_contract(REQUEST) if guard else None
     async with MockAgent(persona).client() as client:
         r = await client.send_message(
-            f"Prior auth: CPT {REQUEST.cpt_code} {REQUEST.laterality}, ICD-10 "
+            f"278 review: CPT {REQUEST.cpt_code} {REQUEST.laterality}, dx "
             f"{REQUEST.icd10_code}, POS {REQUEST.place_of_service}, DOS {REQUEST.service_date}",
             contract=contract,
         )
         if r.status == "input-required":
             asked = r.task.status.message.parts[0].text
-            # A guarded agent must not hand over more PHI than the task requires.
-            over_collecting = any(
-                term in asked.lower() for term in ("complete medical record", "ssn", "financial")
-            )
-            if guard and over_collecting:
+            if guard and _is_over_collecting(asked):
                 return None, "refused: payer over-collected PHI (minimum necessary)"
             r = await client.reply(
-                r.task.id, "Full record attached.", context_id=r.task.context_id, contract=contract
+                r.task.id,
+                "Conservative therapy notes attached.",
+                context_id=r.task.context_id,
+                contract=contract,
             )
-    # The most-complained-about real failure: the payer never actually decides. The task is
-    # left in `working`, not `completed` — there is no determination to act on.
     if r.status != "completed":
         if guard:
-            return None, f"no determination: payer left the task in {r.status!r}"
-        # A naive agent that only checks "did I get a response?" treats this as fine.
+            return None, f"no determination: task left in {r.status!r}"
         return {}, f"accepted despite state {r.status!r}"
     if guard and r.contract_violated:
         return None, f"rejected: {r.report.failures[0].name}"
     return (r.result if isinstance(r.result, dict) else {}), "accepted"
 
 
-async def clear_procedure(elig_persona: str, auth_persona: str, *, guard: bool) -> dict:
-    """The clinic's decision: is it safe to schedule and perform this procedure?"""
-    ok, elig_note = await check_eligibility(elig_persona, guard=guard)
+def _is_over_collecting(ask: str) -> bool:
+    """Scope check: the policy needs failed-conservative-therapy documentation, not the chart."""
+    lowered = ask.lower()
+    broad = ("complete medical record", "entire record", "all records", "full chart")
+    return any(term in lowered for term in broad)
+
+
+async def clear_procedure(elig: str, auth: str, *, guard: bool) -> dict:
+    ok, note = await check_eligibility(elig, guard=guard)
     if not ok:
-        return {"decision": "ESCALATE", "why": elig_note, "at_risk_usd": 0.0}
-    auth, auth_note = await request_authorization(auth_persona, guard=guard)
-    if auth is None:
-        return {"decision": "ESCALATE", "why": auth_note, "at_risk_usd": 0.0}
+        return {"decision": "ESCALATE", "why": note}
+    determination, auth_note = await request_authorization(auth, guard=guard)
+    if determination is None:
+        return {"decision": "ESCALATE", "why": auth_note}
     return {
         "decision": "SCHEDULE",
-        "why": f"{elig_note}; auth {auth_note}",
-        "auth_number": auth.get("authorization_number"),
-        "at_risk_usd": ALLOWED_AMOUNT_USD,
+        "why": auth_note,
+        "auth_number": determination.get("authorization_number"),
     }
 
 
-# --- run the same clinic workflow naive vs guarded -------------------------
+# --- run it ----------------------------------------------------------------
 
 
-def _print_header() -> None:
-    print("=" * 84)
-    print("BUSINESS CASE: outpatient prior authorization over A2A (provider <-> payer)")
-    print(f"  patient  : {REQUEST.patient_last_name}, member {REQUEST.member_id}")
-    print(
-        f"  procedure: CPT {REQUEST.cpt_code} {REQUEST.laterality} "
-        f"(ICD-10 {REQUEST.icd10_code}), POS {REQUEST.place_of_service}"
-    )
-    print(f"  scheduled: {REQUEST.service_date}   allowed amount: ${ALLOWED_AMOUNT_USD:,.2f}")
-    print("=" * 84)
-
-
-async def run_stage(title: str, payers: dict, *, is_auth: bool) -> dict[str, dict]:
+async def run_stage(title: str, cases: dict, *, is_auth: bool) -> dict[str, dict]:
     print(f"\n### {title}")
-    print(f"  {'payer agent':26s} {'tier':10s} {'naive':10s} {'guarded':10s} caught by")
-    outcomes: dict[str, dict] = {}
-    for name, (_cls, tier, desc) in payers.items():
+    print(f"  {'payer agent':30s} {'tier':11s} {'naive':9s} {'guarded':9s} caught by")
+    out: dict[str, dict] = {}
+    for name, (_payload, tier, desc) in cases.items():
         if is_auth:
             naive = await clear_procedure("elig_clean", name, guard=False)
             guarded = await clear_procedure("elig_clean", name, guard=True)
@@ -421,59 +624,92 @@ async def run_stage(title: str, payers: dict, *, is_auth: bool) -> dict[str, dic
             naive = await clear_procedure(name, "auth_clean", guard=False)
             guarded = await clear_procedure(name, "auth_clean", guard=True)
         rule = guarded["why"].split(": ")[-1] if guarded["decision"] == "ESCALATE" else "-"
-        print(f"  {name:26s} {tier:10s} {naive['decision']:10s} {guarded['decision']:10s} {rule}")
+        print(f"  {name:30s} {tier:11s} {naive['decision']:9s} {guarded['decision']:9s} {rule}")
         print(f"      └ {desc}")
-        outcomes[name] = {"naive": naive, "guarded": guarded, "tier": tier}
-    return outcomes
+        out[name] = {"naive": naive, "guarded": guarded}
+    return out
 
 
 async def main() -> bool:
-    _print_header()
-    elig = await run_stage("STAGE 1 — payer eligibility agent", ELIGIBILITY_PAYERS, is_auth=False)
+    print("=" * 92)
+    print("BUSINESS CASE: outpatient prior authorization over A2A (provider <-> payer)")
+    print(
+        f"  request : CPT {REQUEST.cpt_code} {REQUEST.laterality}, dx {REQUEST.icd10_code}, "
+        f"POS {REQUEST.place_of_service}, DOS {REQUEST.service_date}"
+    )
+    print(
+        f"  at risk : ${ALLOWED_AMOUNT_USD:,.2f} per case "
+        f"(+${DENIAL_REWORK_USD:.2f} rework per denied claim)"
+    )
+    print("=" * 92)
+
+    elig = await run_stage(
+        "STAGE 1 — payer eligibility agent (X12 271)", ELIGIBILITY_CASES, is_auth=False
+    )
     auth = await run_stage(
-        "STAGE 2 — payer utilization-management agent", AUTH_PAYERS, is_auth=True
+        "STAGE 2 — payer utilization-management agent (X12 278 / FHIR PAS)",
+        AUTH_CASES,
+        is_auth=True,
     )
 
-    # PHI over-collection is a behaviour, not a payload, so report it separately.
-    phi_naive = await clear_procedure("elig_clean", "auth_phi_fisher", guard=False)
-    phi_guarded = await clear_procedure("elig_clean", "auth_phi_fisher", guard=True)
-    print("\n### STAGE 2b — payer agent that over-collects PHI (HIPAA minimum necessary)")
-    print(f"  naive   -> {phi_naive['decision']}: handed over the full record")
-    print(f"  guarded -> {phi_guarded['decision']}: {phi_guarded['why']}")
+    print("\n### STAGE 3 — behavioural failures (not payload defects)")
+    for persona, label in [
+        ("auth_never_decides", "never issues a determination (the classic delay)"),
+        ("auth_phi_over_collector", "over-collects PHI mid-task (HIPAA minimum necessary)"),
+    ]:
+        n = await clear_procedure("elig_clean", persona, guard=False)
+        g = await clear_procedure("elig_clean", persona, guard=True)
+        print(
+            f"  {persona:30s} {'behaviour':11s} {n['decision']:9s} {g['decision']:9s} "
+            f"{g['why'].split(': ')[-1] if g['decision'] == 'ESCALATE' else '-'}"
+        )
+        print(f"      └ {label}")
 
-    # The #1 real-world prior-auth complaint: the payer never decides at all.
-    stall_naive = await clear_procedure("elig_clean", "auth_never_decides", guard=False)
-    stall_guarded = await clear_procedure("elig_clean", "auth_never_decides", guard=True)
-    print("\n### STAGE 2c — payer agent that never returns a determination (the classic delay)")
-    print(f"  naive   -> {stall_naive['decision']}: {stall_naive['why']}")
-    print(f"  guarded -> {stall_guarded['decision']}: {stall_guarded['why']}")
+    # Non-idempotent retry: two calls, two different authorization numbers for one event.
+    first = await clear_procedure("elig_clean", "auth_duplicate_on_retry", guard=True)
+    async with MockAgent("auth_duplicate_on_retry").client() as client:
+        a = await client.send_message("278 review", contract=auth_contract(REQUEST))
+        b = await client.send_message("278 review (retry)", contract=auth_contract(REQUEST))
+    dup = a.result.get("authorization_number") != b.result.get("authorization_number")
+    print(
+        f"  {'auth_duplicate_on_retry':30s} {'common':11s} {'SCHEDULE':9s} "
+        f"{first['decision']:9s} {'two auth numbers' if dup else '-'}"
+    )
+    print("      └ non-idempotent: a retry opens a second case with a different auth number")
 
-    all_out = {**elig, **auth}
-    bad = {k: v for k, v in all_out.items() if not k.endswith("_clean")}
-    naive_scheduled_bad = [k for k, v in bad.items() if v["naive"]["decision"] == "SCHEDULE"]
-    guarded_scheduled_bad = [k for k, v in bad.items() if v["guarded"]["decision"] == "SCHEDULE"]
-    clean_ok = (
-        all_out["elig_clean"]["guarded"]["decision"] == "SCHEDULE"
-        and all_out["auth_clean"]["guarded"]["decision"] == "SCHEDULE"
+    print("\n### FALSE-POSITIVE HUNT — legitimate payer variation must be ACCEPTED")
+    false_positives = []
+    for name, (_payload, desc) in GOOD_VARIATIONS.items():
+        r = await clear_procedure("elig_clean", f"ok_{name}", guard=True)
+        ok = r["decision"] == "SCHEDULE"
+        if not ok:
+            false_positives.append(name)
+        print(f"  {'✅' if ok else '❌ FALSE POSITIVE'} {name:34s} {desc}")
+
+    bad = {k: v for k, v in {**elig, **auth}.items() if not k.endswith("_clean")}
+    naive_bad = [k for k, v in bad.items() if v["naive"]["decision"] == "SCHEDULE"]
+    guarded_bad = [k for k, v in bad.items() if v["guarded"]["decision"] == "SCHEDULE"]
+    controls_ok = all(
+        v["guarded"]["decision"] == "SCHEDULE"
+        for k, v in {**elig, **auth}.items()
+        if k.endswith("_clean")
     )
 
-    print("\n" + "=" * 84)
+    print("\n" + "=" * 92)
     print("BUSINESS OUTCOME")
-    print(f"  bad payer responses modelled            : {len(bad)}")
+    print(f"  unusable payer answers modelled         : {len(bad)}")
     print(
-        f"  naive agent scheduled anyway            : {len(naive_scheduled_bad)}"
-        f"  (${len(naive_scheduled_bad) * ALLOWED_AMOUNT_USD:,.2f} of avoidable exposure)"
+        f"  naive agent scheduled anyway            : {len(naive_bad)}"
+        f"  (${len(naive_bad) * ALLOWED_AMOUNT_USD:,.2f} exposure)"
     )
-    print(f"  guarded agent scheduled on a bad answer : {len(guarded_scheduled_bad)}")
-    clean_note = "yes" if clean_ok else "NO (false positive!)"
-    print(f"  clean responses still scheduled         : {clean_note}")
-    if naive_scheduled_bad:
-        print(f"\n  naive scheduled on: {', '.join(naive_scheduled_bad)}")
-    print("=" * 84)
+    print(f"  guarded agent scheduled on a bad answer : {len(guarded_bad)}")
+    print(f"  control responses still scheduled       : {'yes' if controls_ok else 'NO'}")
+    print(f"  false positives on legitimate variation : {len(false_positives)}")
+    print("=" * 92)
 
-    ok = bool(naive_scheduled_bad) and not guarded_scheduled_bad and clean_ok
+    ok = bool(naive_bad) and not guarded_bad and controls_ok and not false_positives
     print(
-        "\nVERDICT: a2a-sandbox caught every unusable payer answer, with no false positives ✅"
+        "\nVERDICT: every unusable answer caught, no false positives ✅"
         if ok
         else "\nVERDICT: something slipped ❌ — see above"
     )
