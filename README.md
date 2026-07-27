@@ -1,0 +1,157 @@
+# a2a-sandbox
+
+**Test your A2A agent against simulated counterparties — cooperative, broken, or hostile —
+before you connect it to a real one.**
+
+Multi-agent systems don't usually fail by crashing. They fail when one agent reports
+`completed` and hands incomplete or corrupt work to the next one — no error, no stack trace,
+just wrong output three hops downstream. a2a-sandbox lets you reproduce that in a test: spin
+up a counterparty that misbehaves on purpose, point your agent at it, and assert on the
+**result**, not just the protocol status code.
+
+> **Status: v0, spec v1.0, API will change.** This is *pre-deployment testing* — it catches
+> classes of failure before you ship. It is **not** production monitoring, and it is not an
+> identity, trust, or runtime-governance layer. See [What it does and doesn't do](#what-it-does-and-doesnt-do).
+
+## Quickstart
+
+Install (uses [uv](https://docs.astral.sh/uv/)):
+
+```bash
+uv add a2a-sandbox        # or: pip install a2a-sandbox
+```
+
+The scary one first — a peer that **lies about success**:
+
+```python
+from pydantic import BaseModel
+from a2a_sandbox import Contract
+
+
+class Quote(BaseModel):
+    price: float
+    currency: str
+
+
+async def test_my_agent_rejects_a_lying_peer(mock_agent):
+    # Declare what a *correct* delegated result must look like.
+    contract = (
+        Contract("freight quote")
+        .returns(Quote)                                        # must parse into this shape
+        .require("price_is_number", lambda q: isinstance(q.price, (int, float)))
+        .expect_status("completed")
+    )
+
+    # A counterparty that reports "completed" but returns garbage.
+    peer = mock_agent(persona="false_success")
+    async with peer.client() as client:
+        task = await client.send_message("Quote 2 pallets LA->Dallas", contract=contract)
+
+    assert task.status == "completed"     # the peer *claimed* success at the protocol level...
+    assert task.contract_violated         # ...but the returned work does not hold up — caught.
+```
+
+`mock_agent` is a pytest fixture that ships with the package (no config). Wire that same
+`contract` into your agent's delegation path and it rejects the garbage instead of forwarding
+it downstream.
+
+## Persona gallery
+
+Every persona is deterministic (no LLM), toggle-configurable, and drives a real A2A task
+lifecycle. The **reliability tier** is where today's pain lives; the **security tier** is a
+smaller, forward-looking set for teams integrating untrusted or third-party agents.
+
+| Persona | What it simulates | What a correct agent does |
+|---|---|---|
+| `cooperative` | Accepts, works, completes with a well-formed result | Uses the result |
+| `clarifier` | Flips to `input-required` once with a question, then completes | Answers, continues the task |
+| **`false_success`** ⭐ | Reports `completed` but returns incomplete/corrupt output | **Detects it via a contract; does not forward garbage** |
+| `resource_abuse` | Stalls or streams forever, never completing | Bounds its own time/spend and gives up |
+| `flaky` | Drops the connection mid-exchange, then recovers | Retries transient failures |
+| `over_sharing` | Asks for more context than the task needs | Refuses to leak unrelated context |
+
+Security-tier personas (`prompt_injection`, `capability_lying`) are on the
+[roadmap](docs/roadmap.md) as A2A's cross-boundary use grows.
+
+Write your own by returning directives from a plain class — no DSL:
+
+```python
+from a2a_sandbox.core import Complete, Progress
+from a2a_sandbox.personas import register
+
+class HalfAnswer:
+    def respond(self, turn, ctx):
+        return [Progress("working"), Complete(result={"partial": True})]  # omits the real answer
+
+register("half_answer", HalfAnswer)
+```
+
+## `wrap()` — expose your agent for testing in one line
+
+```python
+from a2a_sandbox import wrap
+
+app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])  # an ASGI A2A server
+# run it: uvicorn.run(app, ...)   — or drive it in-process with A2AClient(app=app)
+```
+
+## `check` and `attack` a live agent
+
+```bash
+a2a-sandbox check  https://my-agent.example.com
+a2a-sandbox attack https://my-agent.example.com --json   # for CI
+```
+
+`check` produces a scored conformance smoke report, every row citing the spec section it
+verifies:
+
+```
+                   a2a-sandbox check — https://my-agent.example.com
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Check                ┃ Result ┃ Spec §      ┃ Detail                       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ agent_card_reachable │ PASS   │ 8.2         │ HTTP 200                     │
+│ agent_card_valid     │ PASS   │ 4.4.1       │ name='...', 1 skill(s)       │
+│ send_message         │ PASS   │ 9.4.1       │ got task                     │
+│ streaming_honesty    │ PASS   │ 3.3.4       │ content-type: text/event-... │
+│ method_not_found     │ PASS   │ 9.5         │ got error code -32601        │
+│ task_not_found       │ PASS   │ 5.4         │ got error code -32001        │
+└──────────────────────┴────────┴─────────────┴──────────────────────────────┘
+Score: 9/9 checks passed — conformant
+Smoke report only; run a2a-tck for the full matrix.
+```
+
+It's a fast dev-loop tool, not a certification suite — for the full conformance matrix, use
+the official [a2a-tck](https://github.com/a2aproject/a2a-tck).
+
+## What it does and doesn't do
+
+**Does:** reproduce cross-boundary failure modes — a peer that lies about success, stalls,
+drops, or over-asks — as deterministic pytest fixtures; verify the *result* of delegated work
+against a contract, not just the protocol; smoke-check and probe a live A2A agent from CI.
+
+**Doesn't:** monitor production (that's tracing/observability — a2a-sandbox is shift-left,
+complementary); solve agent identity or trust infrastructure; issue certifications; mock LLM
+APIs, MCP, or vector DBs. It complements ingress-focused tools like `agent-security-harness`
+(which attacks *your* endpoint) by testing the other direction: the counterparty *your* agent
+delegates to.
+
+Honest scoping: A2A adoption is still early, and multi-agent architectures are often overkill.
+a2a-sandbox is for the real case where you have genuine cross-boundary agents — and the core
+engine is protocol-agnostic, so the contract-verification and persona machinery isn't locked
+to A2A. See [docs/prior-art.md](docs/prior-art.md) for how this compares to what exists.
+
+## Design
+
+- [docs/spec-notes.md](docs/spec-notes.md) — how A2A v1.0 maps to the code (every claim cites
+  the spec; verified against the pinned proto in [tests/data](tests/data)).
+- [docs/prior-art.md](docs/prior-art.md) — what exists and the precise niche this fills.
+- [docs/roadmap.md](docs/roadmap.md) — what's intentionally out of v0.
+
+Architecture: a protocol-agnostic core (`a2a_sandbox.core` — lifecycle, contracts, personas)
+with A2A as one adapter (`a2a_sandbox.adapters.a2a`). A test enforces that the core never
+imports protocol code, so a second adapter is possible without touching the engine.
+
+## License
+
+MIT.
