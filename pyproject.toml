@@ -73,6 +73,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "src/a2a_sandbox/cli/**" = ["T20"]
 "tests/**" = ["T20"]
+"examples/**" = ["T20"]  # runnable demos print their results by design
 
 [tool.mypy]
 python_version = "3.11"

@@ -7,7 +7,7 @@ core delivering value on its own (the hedge against thin A2A adoption).
 from pydantic import BaseModel
 
 from a2a_sandbox.core import Complete, Contract, Drop, NeedInput, Progress, Turn, run_behaviour
-from a2a_sandbox.personas import available, get_persona
+from a2a_sandbox.personas import BUILTIN_PERSONAS, available, get_persona
 
 
 class Quote(BaseModel):
@@ -20,7 +20,9 @@ def _first_turn() -> Turn:
 
 
 def test_registry_lists_v0_personas() -> None:
-    assert set(available()) == {
+    # BUILTIN_PERSONAS is exact; available() is a superset because registering custom
+    # personas is a designed feature (other tests/examples add their own).
+    assert set(BUILTIN_PERSONAS) == {
         "cooperative",
         "clarifier",
         "false_success",
@@ -28,6 +30,7 @@ def test_registry_lists_v0_personas() -> None:
         "flaky",
         "over_sharing",
     }
+    assert set(BUILTIN_PERSONAS) <= set(available())
 
 
 def test_unknown_persona_is_a_clear_error() -> None:

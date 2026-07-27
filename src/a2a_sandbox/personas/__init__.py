@@ -43,14 +43,20 @@ def get_persona(name: str, /, **config: Any) -> Behaviour:
 
 
 def available() -> tuple[str, ...]:
-    """Names of all registered personas, sorted."""
+    """Names of all registered personas (built-in plus any the user registered), sorted."""
     return tuple(sorted(_REGISTRY))
 
 
-for _persona in (Cooperative, Clarifier, FalseSuccess, ResourceAbuse, Flaky, OverSharing):
+_BUILTINS = (Cooperative, Clarifier, FalseSuccess, ResourceAbuse, Flaky, OverSharing)
+
+for _persona in _BUILTINS:
     register(_persona.name, _persona)
 
+#: Names of the personas that ship with a2a-sandbox (``available()`` also includes custom ones).
+BUILTIN_PERSONAS: tuple[str, ...] = tuple(sorted(p.name for p in _BUILTINS))
+
 __all__ = [
+    "BUILTIN_PERSONAS",
     "Clarifier",
     "Cooperative",
     "FalseSuccess",
