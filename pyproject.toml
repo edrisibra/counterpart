@@ -37,7 +37,7 @@ a2a_sandbox = "a2a_sandbox.pytest_plugin.plugin"
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
-    "ruff>=0.5",
+    "ruff==0.15.22",  # pinned: CI and local must agree (a newer ruff formats md code blocks)
     "mypy>=1.10",
     "types-pyyaml>=6.0",
     "jsonschema>=4.22",
@@ -54,6 +54,9 @@ packages = ["src/a2a_sandbox"]
 line-length = 100
 src = ["src", "tests"]
 target-version = "py311"
+# Never reformat Markdown: newer ruff formats fenced Python inside docs, which would rewrite
+# the README's deliberately aligned explanatory comments.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
