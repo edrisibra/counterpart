@@ -396,8 +396,23 @@ class A2AServer:
 
     # -- response helpers --------------------------------------------------
 
+    @staticmethod
+    def _echoable_id(rpc_id: Any) -> str | int | None:
+        """JSON-RPC 2.0 allows only a string, number, or null as ``id``.
+
+        A hostile or broken client can send an object or array. Echoing that back would fail
+        model validation while we are *already* building an error response — turning a
+        malformed request into a crashed handler. Anything non-scalar becomes ``null``, which
+        is what the spec prescribes when the id cannot be determined.
+        """
+        if isinstance(rpc_id, bool) or rpc_id is None:
+            return None
+        if isinstance(rpc_id, str | int):
+            return rpc_id
+        return None
+
     def _ok(self, rpc_id: Any, result: Any) -> Response:
-        body = JSONRPCSuccessResponse(id=rpc_id, result=result).to_wire()
+        body = JSONRPCSuccessResponse(id=self._echoable_id(rpc_id), result=result).to_wire()
         return JSONResponse(body, media_type=MEDIA_TYPE_JSON)
 
     def _error(self, rpc_id: Any, code: A2AErrorCode, message: str | None = None) -> Response:
@@ -405,7 +420,7 @@ class A2AServer:
 
         text = message or STANDARD_ERROR_MESSAGES.get(code) or ERROR_NAMES[code]
         body = JSONRPCErrorResponse(
-            id=rpc_id, error=JSONRPCError(code=int(code), message=text)
+            id=self._echoable_id(rpc_id), error=JSONRPCError(code=int(code), message=text)
         ).to_wire()
         return JSONResponse(body, media_type=MEDIA_TYPE_JSON)
 

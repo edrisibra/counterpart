@@ -181,3 +181,39 @@ def test_false_success_default_result_is_per_instance() -> None:
     b = get_persona("false_success")
     a._result["mutated"] = True  # type: ignore[attr-defined]
     assert "mutated" not in b._result  # type: ignore[attr-defined]
+
+
+# --- super-test findings (verified locally after the workflow's verifiers were cut off) ---
+
+
+async def test_non_scalar_jsonrpc_id_does_not_crash_the_error_path() -> None:
+    """JSON-RPC allows only string/number/null as `id`. An object used to crash the handler
+    while it was building the error response — a malformed request became a 500."""
+    mock = MockAgent("cooperative")
+    async with mock.client() as client:
+        for bad_id in ("{}", "[]", '{"a":1}'):
+            body = f'{{"jsonrpc":"2.0","id":{bad_id},"method":"GetTask","params":{{"id":"x"}}}}'
+            resp = await client._http.post("/", content=body.encode(), headers=client._headers())
+            assert resp.status_code == 200, f"id={bad_id} produced HTTP {resp.status_code}"
+            payload = resp.json()
+            assert payload["id"] is None  # cannot be echoed, so null per spec
+            assert payload["error"]["code"] in {
+                int(A2AErrorCode.INVALID_REQUEST),
+                int(A2AErrorCode.INVALID_PARAMS),
+                int(A2AErrorCode.TASK_NOT_FOUND),
+            }
+
+
+def test_returns_none_raises_instead_of_silently_passing_everything() -> None:
+    """The worst failure class for this library: a contract that validates nothing and
+    reports satisfied. `.returns(None)` used to do exactly that."""
+    import pytest as _pytest
+
+    from a2a_sandbox import Contract
+
+    with _pytest.raises(TypeError, match="disable structural validation"):
+        Contract("x").returns(None)
+
+    # Omitting returns() entirely is the legitimate way to check only predicates.
+    report = Contract("x").require("ok", lambda r: r["ok"] is True).verify(result={"ok": True})
+    assert report.satisfied

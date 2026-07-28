@@ -130,7 +130,20 @@ class Contract(Generic[ReceiptT]):
         self._expected_status: Any = _UNSET
 
     def returns(self, shape: type[ReceiptT] | Any) -> Contract[ReceiptT]:
-        """Declare the structural receipt: the returned result MUST parse into this shape."""
+        """Declare the structural receipt: the returned result MUST parse into this shape.
+
+        Passing ``None`` raises rather than silently disabling the check. ``.returns(None)``
+        reads like "returns nothing" but would previously install no shape at all, so the
+        contract accepted any payload and reported ``satisfied`` — a check that silently
+        passes everything is worse than no check, because the caller believes it ran. To
+        deliberately skip structural validation, simply do not call ``returns()``.
+        """
+        if shape is None:
+            raise TypeError(
+                "Contract.returns(None) would disable structural validation while still "
+                "reporting success. Pass a model/type, or omit returns() entirely to check "
+                "only predicates."
+            )
         self._model = shape
         if not (isinstance(shape, type) and issubclass(shape, BaseModel)):
             self._adapter = TypeAdapter(shape)

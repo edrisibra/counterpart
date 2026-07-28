@@ -60,6 +60,30 @@ The core engine (`core/`) is protocol-agnostic on purpose (no A2A imports), so a
 adapter (e.g. an MCP-based agent protocol, or A2A's gRPC/REST bindings) is possible later
 without touching the engine. v0 implements the **A2A JSON-RPC binding only** (spec-notes D1).
 
+## Verified-solid areas (super-test, 2026-07-28)
+
+An adversarial super-test probed dimensions the examples never touched. These held up, and are
+recorded so future changes have a baseline:
+
+- **Per-task concurrency is sound.** 200 simultaneous tasks (in-process and over a real port),
+  150 concurrent SSE streams, 150 `returnImmediately` tasks hammered with concurrent `GetTask`,
+  and 8 OS threads x 25 requests: unique task ids throughout, no cross-task artifact/status
+  bleed, no torn reads, `received_requests` exact. Personas are genuinely per-task and
+  `Contract` is stateless, so one Contract is safe to share across concurrent verifications.
+- **The pydantic wire layer resists abuse.** Part-oneof violations, null/wrong-typed fields,
+  envelope abuse (batch arrays, numeric `method`, wrong `jsonrpc`), 3 MB parts, 10k-element
+  arrays, 10k parts, emoji/ZWJ/RTL-override/combining-char/NUL/BOM payloads: all produced
+  spec-correct JSON-RPC errors or faithful round-trips — never a crash, never silent
+  acceptance. `Contract.verify` never raised on hostile receipts (2000-deep dicts, 5 MB
+  strings, 10k-key dicts, lone surrogates); a predicate that hits RecursionError is reported
+  as a failed check, as documented.
+- **The protocol-agnostic claim holds.** The Contract engine was verified end-to-end with no
+  A2A involved: a plain `httpx` call to a non-A2A JSON endpoint, plain sync/async function
+  returns, an MCP-shaped tool result, and `core.Lifecycle` driving a wholly invented protocol.
+  `core/` was also import-checked with starlette/httpx/uvicorn blocked, confirming the guard
+  test has teeth. A forgotten `await` (a coroutine passed as `result`) is caught as a
+  structure failure rather than passing.
+
 ## Known limitations (surfaced by dogfooding the examples, not yet addressed)
 
 - **Personas cannot hold state across tasks.** `MockAgent` builds a fresh `Behaviour` per task
@@ -75,6 +99,10 @@ without touching the engine. v0 implements the **A2A JSON-RPC binding only** (sp
 - **`expect_status` compares raw strings.** Mixing wire values (`TASK_STATE_COMPLETED`) with
   friendly aliases (`completed`) false-positives. Core is deliberately protocol-agnostic so it
   cannot coerce A2A values; the fix is an adapter-supplied normalizer, not special-casing core.
+- **Same-task operation races are unguarded.** Many tasks at once is fine (above), but two
+  operations racing on the *same* task record — concurrent follow-ups, or a `CancelTask`
+  overlapping an in-flight send — have no guard. Claimed by the super-test but never
+  independently verified (its verifier agents were cut off mid-run), so treat as suspected.
 - **`_extract_result` reads only the latest artifact**, so a task returning several artifacts
   exposes just the last one to the contract.
 
