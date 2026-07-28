@@ -266,7 +266,7 @@ I'd like to know what the payload looked like. The failure modes in the examples
 as the real cases behind them, and I'd rather model things that actually happened to somebody
 than things I imagined. There's an issue tracker.
 
-`pip install counterpart`, Apache 2.0, version 0.1.4, the API will change.
+`pip install counterpart`, Apache 2.0, version 0.1.7, the API will change.
 
 ---
 

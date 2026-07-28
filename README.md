@@ -35,7 +35,7 @@ completed task and the protocol is satisfied by all of them:
 ```
 
 A contract is you writing down what you were expecting, so the test fails at the point the peer
-lets you down instead of three functions later in an invoice. `{"price": float}` is the
+lets you down instead of three functions later or in an invoice. `{"price": float}` is the
 shorthand form. For real checks, pass a pydantic model and add named predicates, with
 `strict=True` when you do not want `"1420.00"` silently coerced to a number:
 
@@ -111,7 +111,7 @@ genuinely belongs to somebody else:
 - [Chaos multihop](https://github.com/edrisibra/counterpart/blob/main/examples/chaos_multihop.py): four hops, real sockets, twenty concurrent users,
   corruption injected at the bottom and caught at the top.
 
-Every example tests both directions: each unusable answer is caught, and each legitimate answer
+Every example tests both halves: each unusable answer is caught, and each legitimate answer
 is left alone. The second half is harder. All four bugs found in these contracts were false
 positives, checks rejecting good answers, and a checker that flags good data gets switched off.
 
@@ -125,6 +125,6 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Contributing
 
-Version 0.1.6, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.7, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
