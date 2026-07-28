@@ -564,7 +564,7 @@ async def main() -> bool:
             print(f"      wrongly rejected by {rule}")
 
     print("\nSELECTION: five carriers bid, the three cheapest are all unusable")
-    for name, p in TENDER_BOARD.items():
+    for name, p in sorted(TENDER_BOARD.items(), key=lambda kv: kv[1]["total_usd"]):
         print(f"  ${p['total_usd']:>8,.2f}  {p['carrier']:20s} {name}")
     n_carrier, n_price, _ = await tender(guard=False)
     g_carrier, g_price, g_note = await tender(guard=True)

@@ -1,168 +1,173 @@
 # DRAFT: launch blog post
 
-Not published yet. Re-check every factual claim on the day you post, because the FHIR
-implementation guide is a moving target and being exactly right is the whole point of this
-piece.
+Not published. Check the numbers against the example before posting, and run
+`uv run python examples/freight_edge_cases.py` so the output you quote is the output people get.
 
 ---
 
-## "Complete" doesn't mean approved
+## My agent booked a carrier that wasn't allowed to haul freight
 
-I've been building a testing library for agents that talk to each other, and I went looking for
-a realistic example of the failure I care about most: an agent that reports success while
-handing back something you can't use.
+I was building an agent that shops for freight. It asks a handful of carriers what they'd charge
+to move a couple of pallets, then books the cheapest one. Five quotes came back. It picked the
+cheapest, at $1,050.
 
-I found the cleanest example I've seen sitting inside an official healthcare standard.
+That carrier had no operating authority. No MC number, which is the registration a carrier needs
+to legally move freight for hire in the US. If the load had gone missing, the loss would have
+been mine, and my insurer would have had a reasonable opinion about why.
 
-### The setup
+Here's the thing that bothered me. Nothing went wrong.
 
-HL7's Da Vinci Prior Authorization Support guide is the FHIR standard for a provider asking an
-insurer to authorize a procedure. The insurer answers with a `ClaimResponse`, which has a top
-level field called `outcome`.
+The request succeeded. The response was valid JSON. It parsed cleanly into the shape I expected.
+It had a carrier name, a price, a transit time, an expiry date. The agent on the other end
+reported its task as `completed`, because from its point of view it had finished the work it was
+asked to do. Every layer I had was satisfied.
 
-That field is bound to a short list of values: `queued`, `complete`, `error`, `partial`. It's
-required, cardinality 1..1. If you're writing a client, it looks exactly like the field you're
-supposed to branch on.
+My code was the only thing that cared whether the carrier was allowed to drive, and my code
+wasn't looking.
 
-### The problem
+## The bug isn't in the protocol
 
-Here is the guide's own published example of a *pended* response. Pended means the request
-hasn't been decided yet. It's sitting in clinical review.
+I'm using [A2A](https://a2a-protocol.org/), the protocol for agents to hand work to each other.
+When a task reaches `completed`, that means the other agent stopped working. It does not mean the
+result is any good. Those are two different claims and only one of them is on the wire.
 
-```json
-{
-  "resourceType": "ClaimResponse",
-  "outcome": "complete",
-  "item": [{
-    "adjudication": [{
-      "extension": [{
-        "url": ".../extension-reviewAction",
-        "extension": [{
-          "url": "number",
-          "valueCodeableConcept": {
-            "coding": [{
-              "system": "https://codesystem.x12.org/005010/306",
-              "code": "A4",
-              "display": "Pending"
-            }]
-          }
-        }]
-      }]
-    }]
-  }]
-}
-```
+Once I started looking for this, it was everywhere in the quotes I was getting back:
 
-`outcome` says `complete`. There's no `preAuthRef`, so no authorization number. The only thing
-in the whole payload telling you this wasn't approved is `reviewActionCode: "A4"`, four levels
-deep inside an extension.
+One carrier came in cheapest because the quote excluded the fuel surcharge, which in freight is a
+percentage added on top and is not optional. The invoice would have arrived about 30% higher than
+the number I compared against.
 
-Now look at the guide's *approved* example. It's also `outcome: "complete"`. It also has no
-`preAuthRef`. The two responses, approved and still pending, differ only in that review action
-code.
+Another quoted my shipment at freight class 50 when it's class 70. Class comes from density, and
+a carrier that reclassifies your pallet on the dock bills you the difference. The cheap number
+was cheap because it described a different, lighter shipment.
 
-So the field that tells you the truth is optional, and the field that misleads you is
-mandatory. A client reading the obvious top level status can't tell an approval from a pend. It
-will conclude the authorization came through, and the procedure gets scheduled against an
-authorization that doesn't exist.
+Another quoted three days transit, which cleared my four day deadline, except it was three
+*calendar* days against a deadline I was counting in business days. Picked up Thursday, that
+delivers the following week.
 
-I checked whether this was an old mistake since fixed. It's in STU 2.1 and it's still in the
-current build.
+None of those were malformed. Every one of them was a completed task with a valid payload and a
+real number in it. If you sort by price and book the winner, you lose money on all three, and you
+find out weeks later from an invoice that doesn't match anything you agreed to.
 
-### It isn't hypothetical
+## Why the tools I had didn't help
 
-X12 has the same trap from another direction. A first `278` response is often an interim
-acknowledgement rather than a decision. Blue Cross NC returns `HCR01=A4`, pended, within 24
-hours, and sends the real determination later in a separate unsolicited transaction. Texas
-Medicaid goes further and returns `A4` for all approved transactions, so there `A4` just means
-your request arrived.
+I checked whether I was missing something obvious.
 
-Same code. Opposite meanings. Depends on the payer.
+Conformance testing didn't help, because the protocol behaved correctly. That's the whole point of
+conformance, and it passed, correctly. There's an official test kit for A2A and it will happily
+tell you a server is compliant while that server hands you a quote from an unlicensed carrier.
 
-The money is real too. Premier reports that 10.4 percent of denied claims had been pre-approved
-through prior authorization, up from 3.2 percent the year before, at $57.23 per claim just to
-rework. Getting an authorization is not the same as getting paid.
+Evaluation platforms didn't help either. They simulate a user talking to your agent and score how
+well it reasons. Useful, different problem. Nobody was checking whether the thing the *other*
+agent sent back was usable.
 
-### Why I care beyond healthcare
+Mock servers got closest, and there are a couple of good ones. But they replay canned responses,
+so they answer "does my code handle a response" and not "should my code have accepted this
+response".
 
-I work on agent-to-agent systems, where this shape turns up everywhere. In the A2A protocol, a
-task reaching state `completed` means the agent finished its work. It doesn't mean the work is
-correct, or complete, or usable. Those are different claims and only one of them is on the wire.
+The question I actually had was: the agent I delegated to says it finished, can I use what it gave
+me? Nothing I could find asked it.
 
-This is worse than a crash. A crash gives you a stack trace and somewhere to look. This gives
-you nothing. Every agent in the chain reports success, no error is logged anywhere, and you find
-out weeks later from a denied claim or a customer billed the wrong amount. An academic study of
-multi-agent failures puts false success at 45 to 79 percent of them.
-
-Conformance testing can't see it, because conformance asks whether the protocol behaved, and it
-did. Evaluation platforms can't see it either, because they simulate a user talking to your
-agent and score its reasoning. Neither one asks the question that actually matters: the agent I
-delegated to says it's done, can I use what it gave me?
-
-### What I built
+## What I built
 
 [counterpart](https://github.com/edrisibra/counterpart) does two things.
 
-It gives you counterparties that misbehave on purpose, so you can test against a peer that lies
-about finishing:
+It stands in for the agents your agent calls, and it lets you say what a usable answer looks like
+before you accept one.
 
 ```python
-peer = mock_agent(persona="false_success")   # reports completed, returns garbage
+async def test_agent_rejects_a_bad_quote(mock_agent):
+    peer = mock_agent("false_success")     # reports done, sends back junk
+
+    task = await peer.ask("Quote 2 pallets LA to Dallas", contract={"price": float})
+
+    assert task.status == "completed"   # it said it finished
+    assert task.contract_violated      # and there was no price in it
 ```
 
-And it lets you say what a usable answer looks like, then check the answer you got:
+For the real freight case the contract is longer, because the things that cost money are specific:
 
 ```python
-contract = (Contract("prior authorization")
-    .returns(AuthDetermination)
-    .require("certified", is_approval)          # reads the review action code, not `outcome`
-    .require("has_auth_number", lambda a: bool(a.authorization_number))
-    .expect_status("completed"))
-
-report = contract.verify(result=payload, reported_status=task.status)
-assert report.contract_violated    # the peer claimed success, the work doesn't hold up
+contract = (
+    Contract("LTL freight quote")
+    .returns(Quote)
+    .require(has_operating_authority=lambda q: bool(q.mc_number) and q.mc_number.isdigit())
+    .require(insurance_valid=lambda q: date.fromisoformat(q.insurance_expires) >= today)
+    .require(fuel_surcharge_accounted=lambda q: q.fuel_surcharge_usd is not None)
+    .require(freight_class_matches=lambda q: q.quoted_freight_class == load.freight_class)
+    .require(transit_basis_stated=lambda q: q.transit_day_basis in {"business", "calendar"})
+)
 ```
 
-The report records what the peer claimed next to whether it held up, which is what makes this
-kind of failure visible instead of invisible.
+That's not clever code. It's the list of things I now know to check, written down where a test can
+run it, instead of living in my head and being forgotten at 6pm.
 
-The repo has the scenario above as something you can run: a clinic's agent clearing a procedure
-with an insurer's eligibility and utilization management agents, against 25 modelled payer
-responses that all report `completed`. A naive agent schedules on 24 of them.
+The repo has this as a runnable example with 22 ways a quote can be unusable. The result I like
+best is the selection one, because it isn't about validation at all:
 
-### The part that surprised me
+```
+  $1,050.00  Gray Route          no operating authority
+  $1,180.00  Dockline            excludes the fuel surcharge
+  $1,240.00  Sunbelt LTL         wrong freight class, rebilled on the dock
+  $1,642.50  Ridgeline Freight   usable
+  $2,180.00  Meridian Carriers   usable
 
-Writing the checks was easy. Writing checks that don't cry wolf was the hard part.
+  without checks: books Gray Route at $1,050.00
+  with checks:    books Ridgeline Freight at $1,642.50
+```
 
-Reading the actual X12 value sets turned up three bugs in the contracts I'd written, and every
-one of them was a false positive. My checks were rejecting valid answers.
+The correct answer is to pay $592.50 more. That's the part I'd want someone to take away. This isn't
+a linter that makes your tests stricter, it's the difference between two different bookings.
 
-I only accepted the literal string `"APPROVED"`, so I rejected `A1` and `"Certified in total"`,
-which are the real X12 certification values. I compared dates as strings, so a payer sending
-`07/31/2026` quietly passed a window check it should have failed, which is the dangerous
-direction to get wrong. And I compared member ids with `==`, so a payer echoing back
-` w123456789 `, the correct patient with different padding, got rejected as the wrong person.
+## The part I got wrong
 
-That's the real lesson and it generalizes well past healthcare. A checker that flags legitimate
-variation gets switched off in week two, and then you have no checker at all. Both scenarios in
-the repo now test for false positives explicitly, not just for catches.
+I expected the hard bit to be catching bad data. It wasn't. It was not crying wolf.
 
-### Honestly
+I went and read the actual industry code lists to make the examples realistic, and doing that
+found four bugs in the checks I had already written. Every single one was a false positive. My
+checks were rejecting good answers.
 
-This is version 0.1.0 and the API will change. It's testing you run before you deploy, so it
-doesn't watch production and it doesn't solve agent identity or trust. If your agents are three
-functions in the same process, you don't need it.
+I only accepted one spelling of an approval code, so I rejected the real code that the standard
+actually uses. I compared dates as text, so `07/31/2026` slipped past a check it should have
+failed, which is the dangerous direction to be wrong in. I compared an id with `==`, so a
+correct id that came back with a space around it was treated as the wrong customer. And I rejected
+`currency: "usd"` because I'd only thought of `"USD"`.
 
-But if you have an agent depending on an agent somebody else operates, it's worth asking what
-your code does when that agent says `completed` and means something else.
+Not one of the four was a missed catch. All four were the checker being wrong about good input.
+
+That matters more than it sounds. A checker that flags valid traffic gets switched off in week
+two, and then you have nothing. So both examples in the repo now test the opposite direction
+explicitly: fourteen things that look wrong and are completely normal, like an all in rate with no
+breakdown, or a billed weight higher than the scale weight because the pallet is bulky, and all
+fourteen have to pass.
+
+## What it doesn't do
+
+It's testing you run before you ship. It doesn't watch production, so if you want to know what
+your agents are doing right now you want tracing, not this.
+
+It also only sees the payload, not the clock. A correct answer that arrives 400ms too late is
+still useless to you, and the contract can't tell. That timeout is yours to enforce.
+
+And if your agents are three functions in the same process, you don't need any of this. Call the
+functions.
+
+## If you've hit this
+
+I'd like to know what the payload looked like. The failure modes in the examples are only as good
+as the real cases behind them, and I'd rather model things that actually happened to somebody
+than things I imagined. There's an issue tracker.
+
+`pip install counterpart`, Apache 2.0, version 0.1.3, the API will change.
 
 ---
 
-## Notes to self, delete before publishing
+## Notes to self, delete before posting
 
-- Re-verify the PAS examples the morning you publish and link the raw JSON directly.
-- The three false positives section is the most credible thing in here, because it's a real
-  finding against my own code. Don't cut it for length.
-- Don't claim any adoption. There isn't any yet.
-- Title options: "Complete doesn't mean approved" / "The field that says success is required.
-  The field that says the truth is optional." / "Your agent said it's done. Prove it."
+- Run the freight example and paste its real output. Don't retype the numbers.
+- The four false positives section is the most credible thing here because it's an admission
+  against interest. Keep it even if the post runs long.
+- Don't claim any users. There aren't any.
+- Title options, all plain: "My agent booked a carrier that wasn't allowed to haul freight" /
+  "The cheapest quote came from an unlicensed carrier" / "Finished and correct are different
+  things".

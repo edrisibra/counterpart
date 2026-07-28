@@ -1,125 +1,130 @@
 # DRAFT: launch posts
 
-Nothing here is published. Before any of it goes out:
+Nothing here is published yet.
 
-1. `pip install counterpart` works and the repo is public. Both are true now.
-2. You have a free evening. You're expected to answer comments for a few hours, and a Show HN
-   where the author disappears does badly.
+Before you post: `pip install counterpart` has to work, and you need a free evening. You're
+expected to be in the comments for a few hours, and a Show HN where the author vanishes does
+badly. Tuesday to Thursday, 8 to 10am US Eastern. One shot per project.
 
-Timing: Tuesday to Thursday, roughly 8 to 10am US Eastern. You get one shot per project, so
-don't burn it on a Friday.
+What the top Show HN posts have in common, from reading them: first person, one concrete detail
+with a real number in it, plain words, short. "I replaced a $120k bowling center system with
+$1,600 in ESP32s" is the shape. Nobody wins with a description of a category.
 
 ---
 
 ## Show HN
 
-Title, under 80 characters, leading with the finding rather than the tool:
+Title. Story first, because the story has a number in it:
 
 ```
-Show HN: HL7's prior-auth standard says "complete" when a request is only pended
+Show HN: My agent booked a freight carrier that wasn't allowed to haul freight
 ```
 
-Alternatives, roughly in order of preference:
+Alternatives if you'd rather lead with the tool:
 
 ```
-Show HN: counterpart, test your agent against a peer that lies about finishing
-Show HN: The field that says success is required. The field with the truth is optional.
-Show HN: Your agent said it's done. Prove it.
+Show HN: Counterpart, mocks for the agents your agent calls
+Show HN: Testing an agent against a peer that reports success and sends junk
+Show HN: Finished and correct are different things
 ```
 
-Link the GitHub repo, not the blog post. HN prefers the artifact. Put the blog link in your
-first comment.
+Link the repo. Put the blog post in your first comment.
 
-First comment, posted immediately after submitting:
+First comment, post it right after submitting:
 
-> I've been building a testing library for agents that talk to each other over A2A, and went
-> looking for a realistic example of the failure I care about: an agent reporting success while
-> returning work you can't use. The cleanest example I found is in HL7's own prior
-> authorization standard.
+> I was building an agent that shops for freight. It asks a few carriers for a price on a couple
+> of pallets and books the cheapest. Five quotes came back, it picked the cheapest at $1,050, and
+> that carrier had no operating authority. No MC number, so not legally allowed to move freight
+> for hire. If the load had gone missing that would have been my problem.
 >
-> Their published pended example returns `outcome: "complete"` with no authorization number.
-> Their approved example is also `outcome: "complete"` with no authorization number. The two
-> differ only in an optional, deeply nested review action code (A1 certified vs A4 pended),
-> while `outcome`, the field that misleads you, is required. A client branching on the obvious
-> top level status can't tell an approval from a pend. It's still in the current build, not an
-> old mistake since fixed.
+> What bothered me is that nothing went wrong. The request succeeded, the JSON was valid, it
+> parsed into the shape I expected, it had a carrier and a price and a transit time. The agent on
+> the other end reported its task as completed, because it had finished what it was asked to do.
+> My code was the only thing that cared whether the carrier was allowed to drive, and it wasn't
+> looking.
 >
-> X12 has the same trap. A first 278 response is often an interim ack rather than a decision.
-> Blue Cross NC returns A4 (pended) within 24 hours and sends the real determination later as a
-> separate unsolicited transaction. Texas Medicaid returns A4 for all approved transactions.
-> Same code, opposite meaning, depending on the payer.
+> Once I started checking, the same thing was everywhere. One quote was cheapest because it left
+> out the fuel surcharge, which is a percentage added on top and isn't optional, so the invoice
+> lands about 30% over the number I compared. One quoted my shipment a freight class lighter than
+> it is, and carriers reclassify on the dock and bill you the difference. One quoted 3 days
+> transit against my 4 day deadline, except it meant calendar days and I meant business days.
 >
-> The general shape is what interests me. In A2A a task reaching `completed` means the agent
-> finished, not that the work is right. Conformance testing can't see the difference because
-> the protocol behaved fine, and eval platforms can't either because they simulate a user and
-> score reasoning. Nobody checks whether the artifact the peer handed back is usable.
+> None of them were malformed. All of them were completed tasks with real numbers in them.
 >
-> So the library does two things: counterparties that misbehave on purpose, so you can test
-> against a peer that lies, and contracts that verify the returned content against what you
-> asked for. The repo has a runnable scenario with 25 modelled payer failures, all reporting
-> `completed`, where a naive agent schedules on 24 of them.
+> I'm using A2A, where a task reaching `completed` means the other agent stopped working. It
+> doesn't mean the result is usable. Conformance testing can't see the gap, correctly, because the
+> protocol behaved. Eval platforms simulate a user talking to your agent and score its reasoning,
+> which is a different problem. Mock servers replay canned responses, so they tell you whether
+> your code handles a response, not whether it should have accepted it.
 >
-> The part that surprised me: writing checks was easy, writing checks that don't cry wolf was
-> not. Reading the real X12 value sets found three bugs in my own contracts and all three were
-> false positives. I rejected `A1` and "Certified in total", which are real certification
-> values. I string-compared dates so `07/31/2026` quietly passed a check it should have failed.
-> I `==`-compared member ids so a correctly echoed ` w123456789 ` was rejected as the wrong
-> patient. A checker that flags valid answers gets switched off in week two, which is worse
-> than having none.
+> So counterpart stands in for the agents your agent calls, and lets you write down what a usable
+> answer looks like before you accept one. The freight example in the repo has 22 ways a quote is
+> unusable, and the bit I like is the selection: five carriers bid, the three cheapest are all
+> unusable, and the right answer is to pay $592.50 more than the cheapest number. That's not
+> validation being strict, that's a different booking.
 >
-> v0.1.0, Apache-2.0, API will change. It's pre-deployment testing, so it doesn't monitor
-> production and doesn't solve agent identity. If your agents are three functions in one
-> process you don't need it. Happy to be told the abstraction is wrong.
+> The thing I got wrong: I assumed catching bad data would be the hard part. It wasn't. Reading
+> the real industry code lists to make the examples honest found four bugs in checks I'd already
+> written and all four were false positives. I rejected the actual approval code the standard
+> uses because I'd only handled one spelling of it. I compared dates as text so 07/31/2026 slipped
+> past a check it should have failed. I compared an id with == so a correct id with a space around
+> it read as the wrong customer. A checker that rejects good answers gets switched off in week two,
+> so the examples now test fourteen things that look wrong and are completely normal.
+>
+> pip install counterpart, Apache 2.0, v0.1.3, API will change. It's pre-deployment testing so it
+> doesn't watch production, and it only sees the payload and not the clock, so deadlines are still
+> yours to enforce. If your agents are three functions in one process you don't need it. Happy to
+> hear the abstraction is wrong.
 
-Questions you'll get, with honest answers ready.
+Questions you'll get. Answer them plainly and concede the fair ones immediately.
 
-*Isn't this just Pydantic validation?* Largely yes, and say so. The structural check is
-`model_validate`. What's added is pairing it with the peer's reported status so the discrepancy
-is recorded, a typed failure category, and the actual work, which is a spec-verified A2A server
-that walks the real task lifecycle so you have something to test the contract against.
+*Isn't this just Pydantic validation?* Mostly yes, and say so. The structural check is
+`model_validate`. What's added is pairing it with what the peer claimed, so the mismatch is
+recorded, and the part that took the actual work, which is a spec accurate A2A server that walks
+the real task lifecycle so there's something to test the contract against.
 
-*Who even uses A2A?* Concede it. Adoption is thin. A probe found 0 of 50 agents advertising A2A
-actually answered a valid request. That's why the core is protocol-agnostic: the contract engine
-works on any delegated result, including plain HTTP, an MCP tool call, or a function return.
+*Who's using A2A?* Concede it. Adoption is thin. Somebody probed 50 agents advertising A2A support
+and 0 of them answered a valid request. That's why the core has no protocol code in it, so the
+contract engine works on a plain HTTP response or a function return just as well.
 
-*Doesn't a2a-tck already do this?* No, and be precise. a2a-tck tests your server for protocol
-conformance. This tests the counterparty you delegate to, at the content layer. Different
-direction, different layer. Link them, don't disparage them.
+*Doesn't a2a-tck do this?* No, and be precise, because they do good work. a2a-tck tests your server
+for protocol conformance. This tests the agent you delegate to, at the content layer. Different
+direction, different layer. Link them.
 
-*Why not DeepEval or LangSmith?* They simulate a user and score your agent's reasoning. They
-don't simulate a protocol-speaking peer returning a malformed artifact.
+*Why not DeepEval or LangSmith?* They simulate a user and score your agent's reasoning. They don't
+simulate a peer that returns a well formed useless artifact.
 
-*How is this different from a mock server?* aimock and mokksy do stateless fixture matching.
-These are stateful personas walking a real task lifecycle, paired with content verification.
-Credit them by name.
+*How's this different from a mock server?* aimock and mokksy do stateless fixture matching, and
+they're good at it. These are stateful personas that walk a real task lifecycle, plus the content
+check. Credit them by name.
 
-Rules of engagement: no marketing voice, concede fair criticism immediately, never argue with a
-downvote. If someone says the idea is wrong, ask what they'd do instead. That answer is worth
-more than the upvotes.
+Don't use a marketing voice, don't argue with downvotes. If somebody says the idea is wrong, ask
+what they'd do instead. That answer is worth more than the points.
 
 ---
 
 ## r/LLMDevs and r/AI_Agents
 
-Problem first. These subs remove posts that read as "check out my project".
+Problem first. These subs remove anything that reads as promotion.
 
-Title: `The worst multi-agent bug isn't a crash, it's an agent reporting "completed" with garbage`
+Title: `My agent booked a freight carrier that wasn't licensed, and nothing errored`
 
-Open with the HL7 finding, then the general shape, then the three false positives you found in
-your own checks, then one link at the end. Roughly 70 percent problem, 30 percent tool.
+Open with the story, then the three other quotes that were wrong in different ways, then the four
+false positives I found in my own checks. One link at the end. Roughly 70% problem, 30% tool.
 
 ---
 
 ## A2A project discussions
 
-The most useful of these posts and the lowest risk. Frame it as a question rather than an
-announcement:
+Lowest risk of the three and the most useful. Ask a question, don't announce anything:
 
-> Is counterparty and negative testing in scope for the project's tooling? a2a-tck covers
-> server side conformance well. I've been working on the other direction, simulated
-> counterparty agents that misbehave (pended-as-approved, silent code downgrade, never decides)
-> plus content verification of the returned artifact. Built it out of need. Happy to contribute
-> the pieces upstream if that's useful, or keep it as an ecosystem tool. Which would you prefer?
+> Is counterparty and negative testing in scope for the project's tooling? a2a-tck covers server
+> side conformance well. I've been working on the other direction: mock agents that misbehave on
+> purpose, plus checking the content of what comes back, because a completed task tells you the
+> agent stopped and not that the result is usable. Built it because I needed it. Happy to
+> contribute the pieces upstream if that's useful, or keep it as an ecosystem tool. Which would
+> you prefer?
 
-Do this one before the Show HN if you can. The answer changes how you frame the launch, and you
-get one of three useful replies: they want it, they'd fold it into a2a-tck, or nobody answers.
+Do this one first. You get one of three answers and all of them are worth having: they want it,
+they'd rather fold it into a2a-tck, or nobody replies. Any of the three changes how you frame the
+Show HN.
