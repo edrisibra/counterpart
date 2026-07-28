@@ -25,9 +25,15 @@ pip install counterpart
 Installing the package is the whole setup. The `mock_agent` fixture and the async
 configuration come with it, so there is no `conftest.py` to write.
 
-If your agent hands work to an agent somebody else operates, you cannot test it without them.
-counterpart stands in for those agents: ones that work, ones that stall, ones that come back with
-junk. Six ship with it, all deterministic, none needing an LLM.
+This is for you if your agent hands work to an agent somebody else runs and you cannot stand up
+their side to test against. If your agents are three functions in the same process, you do not need
+any of this.
+
+The mock runs inside your test process, so there is no port to manage and nothing touches the
+network. Six personas ship with it, all deterministic and none needing an LLM: ones that work, ones
+that stall, ones that come back with junk. `mock_agent` is the pytest fixture, and `MockAgent` is
+the same object without pytest, for when you want `.serve()` to give you a real address to point
+another process at.
 
 `{"price": float}` is shorthand for a contract that requires a `price` field which is a
 number. When you want more, build one properly. Pass a pydantic model, add named checks, and
@@ -62,8 +68,9 @@ completed task, and the protocol is satisfied by all of them:
 Your code then carries on with whatever it got. Nothing raised, nothing was logged, and the bad
 value is now three functions downstream or in an invoice. That is what makes these expensive to
 find: you are debugging backwards from a wrong number, days later, with no stack trace to start
-from. One study of multi-agent failures attributes 45 to 79 percent of them to this rather than
-to anything crashing.
+from. One [study](https://arxiv.org/abs/2503.13657) annotated more than 1,600 execution traces from
+seven multi-agent frameworks and sorted the failures into 14 modes under three headings. One of the
+three headings is task verification.
 
 A contract is just you writing down what you were expecting, so the test fails at the point the
 peer lets you down instead of somewhere later.
@@ -94,23 +101,6 @@ class HalfAnswer:
 register("half_answer", HalfAnswer)
 ```
 
-## One thing to know about contracts
-
-By default `returns()` uses pydantic's normal mode, so a peer sending `{"price": "1420.00"}`
-gets coerced to a float and passes. Your predicates then see a real number, so an `isinstance`
-check will not save you. That is ordinary pydantic behaviour, but it surprises people here,
-because you might reasonably think you asked for type validation.
-
-If you want the stricter reading, ask for it:
-
-```python
-Contract("fare").returns(Fare, strict=True)
-```
-
-Lax is the default on purpose. Plenty of real services send numbers as strings, and a contract
-that rejects valid traffic gets switched off, which leaves you with nothing. Use `strict=True`
-when you control both ends or the format is pinned.
-
 ## Testing the other direction
 
 Everything above has your agent doing the calling. Sometimes you are the one being called, and
@@ -120,8 +110,7 @@ same mocks work as the caller.
 `wrap()` turns any callable, sync or async, into an A2A server, and the mock sends it work:
 
 ```python
-from counterpart import MockAgent, wrap
-from counterpart.adapters.a2a.mockagent import serve_asgi
+from counterpart import MockAgent, serve_asgi, wrap
 
 with serve_asgi(wrap(my_agent, name="quoting-agent")) as url:
     peer = MockAgent("cooperative")
@@ -188,6 +177,23 @@ That is the trap with this kind of testing. Catching bad data is easy. A checker
 good data gets switched off, and then you are back to having none, so both examples test for false
 positives explicitly.
 
+## One thing to know about contracts
+
+By default `returns()` uses pydantic's normal mode, so a peer sending `{"price": "1420.00"}`
+gets coerced to a float and passes. Your predicates then see a real number, so an `isinstance`
+check will not save you. That is ordinary pydantic behaviour, but it surprises people here,
+because you might reasonably think you asked for type validation.
+
+If you want the stricter reading, ask for it:
+
+```python
+Contract("fare").returns(Fare, strict=True)
+```
+
+Lax is the default on purpose. Plenty of real services send numbers as strings, and a contract
+that rejects valid traffic gets switched off, which leaves you with nothing. Use `strict=True`
+when you control both ends or the format is pinned.
+
 ## What it does not do
 
 This is testing you run before you deploy. It does not watch production, it does not solve
@@ -195,8 +201,6 @@ agent identity or trust, and it will not bound how deep a peer delegates. A cont
 the payload, not the clock, so if a correct answer arriving 400ms late is useless to you, that
 timeout is yours to enforce. [limits_probe.py](examples/limits_probe.py) shows exactly where
 the library goes quiet.
-
-If your agents are three functions in the same process, you do not need any of this.
 
 ## Design
 

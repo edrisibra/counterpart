@@ -1,9 +1,9 @@
-"""counterpart: test your A2A agent against simulated counterparty agents.
+"""counterpart: mock the agent on the other end of an A2A call.
 
-Test your A2A agent against simulated counterparties — cooperative, broken, or
-hostile — before you connect it to a real one. The centerpiece is catching a peer
-that reports success while returning incomplete or corrupt work (silent partial
-completion), via declarative contract assertions and an adversarial persona suite.
+A2A lets one AI agent hand work to another. counterpart stands in for the agent on
+the other end, including the ways it can go wrong, and checks that what comes back
+is usable. A task reaching ``completed`` only means the peer stopped working, so a
+contract looks at the content of the reply rather than the status of the call.
 """
 
 __version__ = "0.1.3"
@@ -11,7 +11,7 @@ __version__ = "0.1.3"
 from typing import Any
 
 from counterpart.adapters.a2a.client import A2AClient, TaskResult
-from counterpart.adapters.a2a.mockagent import MockAgent
+from counterpart.adapters.a2a.mockagent import MockAgent, serve_asgi
 from counterpart.adapters.a2a.wrap import wrap
 from counterpart.core.contract import Contract, ContractReport, FailureCategory
 from counterpart.personas import available as available_personas
@@ -31,5 +31,6 @@ __all__ = [
     "TaskResult",
     "available_personas",
     "mock_agent",
+    "serve_asgi",
     "wrap",
 ]
