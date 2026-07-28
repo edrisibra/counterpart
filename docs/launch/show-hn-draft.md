@@ -81,7 +81,7 @@ First comment, post it right after submitting:
 > it read as the wrong customer. A checker that rejects good answers gets switched off in week two,
 > so the examples now test fourteen things that look wrong and are completely normal.
 >
-> pip install counterpart, Apache 2.0, v0.1.3, API will change. It's pre-deployment testing so it
+> pip install counterpart, Apache 2.0, v0.1.4, API will change. It's pre-deployment testing so it
 > doesn't watch production, and it only sees the payload and not the clock, so deadlines are still
 > yours to enforce. If your agents are three functions in one process you don't need it. Happy to
 > hear the abstraction is wrong.

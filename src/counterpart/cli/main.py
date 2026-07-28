@@ -4,7 +4,7 @@
     counterpart attack https://my-agent.example.com
 
 Both print a rich table by default, or machine-readable JSON with ``--json`` (for CI).
-``check`` is a fast dev-loop smoke report, not the full a2a-tck matrix — see docs.
+``check`` is a fast dev-loop smoke report, not the full a2a-tck matrix. See docs.
 """
 
 from __future__ import annotations
@@ -26,7 +26,10 @@ from counterpart.cli.checks import (
 
 app = typer.Typer(
     name="counterpart",
-    help="Test your A2A agent against simulated counterparties, and check/attack a live agent.",
+    help=(
+        "Mock the agent on the other end of an A2A call, and run check or attack "
+        "against a live one."
+    ),
     no_args_is_help=True,
     add_completion=False,
 )
@@ -63,7 +66,7 @@ def check(
             )
         )
     else:
-        table = Table(title=f"counterpart check — {url}", show_lines=False)
+        table = Table(title=f"counterpart check: {url}", show_lines=False)
         table.add_column("Check", style="bold")
         table.add_column("Result")
         table.add_column("Spec §", style="cyan")
@@ -74,7 +77,7 @@ def check(
         verdict = (
             "[green]conformant[/green]" if failures == 0 else f"[red]{failures} failure(s)[/red]"
         )
-        console.print(f"Score: {passes}/{scored} checks passed — {verdict}")
+        console.print(f"Score: {passes}/{scored} checks passed. {verdict}")
         console.print("[dim]Smoke report only; run a2a-tck for the full matrix.[/dim]")
 
     raise typer.Exit(code=1 if failures else 0)
@@ -104,7 +107,7 @@ def attack(
             )
         )
     else:
-        table = Table(title=f"counterpart attack — {url}", show_lines=True)
+        table = Table(title=f"counterpart attack: {url}", show_lines=True)
         table.add_column("Probe", style="bold")
         table.add_column("Technique", style="cyan")
         table.add_column("Flag")

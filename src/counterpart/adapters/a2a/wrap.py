@@ -1,8 +1,8 @@
-"""``wrap()``: expose any Python callable/agent as a spec-valid A2A dev server.
+"""``wrap()``: expose any Python callable or agent as a spec-valid A2A dev server.
 
     app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])
 
-Built on counterpart's own A2A server (no fasta2a/a2a-sdk dependency — decision D-wrap), so
+Built on counterpart's own A2A server (no fasta2a or a2a-sdk dependency, see decision D-wrap), so
 it stays a thin, deterministic, test-oriented dev server rather than production plumbing.
 The callable receives the inbound message text (and, if it accepts a second argument, the
 structured data part) and returns the result payload; counterpart turns that into a
@@ -29,7 +29,7 @@ def _accepts_two_positional(fn: AgentCallable) -> bool:
     try:
         params = list(inspect.signature(fn).parameters.values())
     except (TypeError, ValueError):
-        return False  # builtins/C callables with no introspectable signature: pass text only
+        return False  # builtins or C callables with no introspectable signature: pass text only
     positional = sum(
         1
         for p in params
@@ -45,7 +45,7 @@ class _CallableBehaviour:
     def __init__(self, fn: AgentCallable) -> None:
         self._fn = fn
         # Pass turn.data as a 2nd positional arg only if the callable actually accepts one
-        # (counting POSITIONAL_ONLY/POSITIONAL_OR_KEYWORD, or any *args). Keyword-only and
+        # (counting POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD, or any *args). Keyword-only and
         # variadic signatures no longer get mis-invoked.
         self._pass_data = _accepts_two_positional(fn)
 

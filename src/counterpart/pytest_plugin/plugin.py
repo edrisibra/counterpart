@@ -1,6 +1,6 @@
 """pytest plugin: the ``mock_agent`` fixture, registered automatically on install.
 
-Installing counterpart is the whole setup. No conftest.py, no ini options — write a test::
+Installing counterpart is the whole setup. No conftest.py, no ini options. Write a test::
 
     async def test_survives_a_lying_peer(mock_agent):
         peer = mock_agent(persona="false_success")
@@ -12,7 +12,7 @@ The fixture is a *factory*, not a single agent, so one test can stand up several
 counterparties.
 
 Async tests work out of the box because this plugin enables pytest-asyncio's ``auto`` mode
-when the user has not chosen a mode themselves — see :func:`pytest_configure`. Every A2A
+when the user has not chosen a mode themselves (see :func:`pytest_configure`). Every A2A
 interaction is async (it is a network protocol), so requiring each user to discover
 ``asyncio_mode`` before their first test is friction this library should absorb, not pass on.
 """
@@ -31,10 +31,10 @@ def pytest_configure(config: pytest.Config) -> None:
     """Enable pytest-asyncio's ``auto`` mode unless the user has set a mode explicitly.
 
     Without this, a bare ``async def test_...`` is not collected as a coroutine test and
-    pytest reports "async def functions are not natively supported" — the first thing a new
-    user would hit, in the quickstart, before seeing anything work.
+    pytest reports "async def functions are not natively supported". That is the first thing
+    a new user would hit, in the quickstart, before seeing anything work.
 
-    We only fill in the default. An explicit ``asyncio_mode`` in pytest.ini / pyproject.toml /
+    We only fill in the default. An explicit ``asyncio_mode`` in pytest.ini, pyproject.toml or
     setup.cfg, or ``-o asyncio_mode=strict`` on the command line, always wins.
     """
     try:
@@ -42,7 +42,7 @@ def pytest_configure(config: pytest.Config) -> None:
     except ValueError:
         return  # pytest-asyncio not installed; nothing to configure
     # `getini` returns the ini default ("strict") when the user set nothing, so distinguish a
-    # real user choice by looking at the parsed ini/CLI sources directly.
+    # real user choice by looking at the parsed ini and CLI sources directly.
     user_set = "asyncio_mode" in config.inicfg or any(
         opt.startswith("asyncio_mode") for opt in config.getoption("override_ini", default=[]) or []
     )

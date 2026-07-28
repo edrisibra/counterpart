@@ -3,12 +3,12 @@
 The normative source is ``specification/a2a.proto`` (vendored with checksum at
 ``tests/data/a2a_v1.0.1.proto``) plus the ProtoJSON serialization rules of spec
 section 5.5. The mapping and all design decisions (D1-D13) are documented in
-``docs/spec-notes.md`` — every class below cites its proto message and spec section.
+``docs/spec-notes.md``. Every class below cites its proto message and spec section.
 
 Wire conventions implemented here:
 
 - JSON field names are camelCase (section 5.5): models declare snake_case Python
-  fields with a camelCase alias generator; use ``to_wire()`` / ``from_wire()``.
+  fields with a camelCase alias generator; use ``to_wire()`` and ``from_wire()``.
 - Enums serialize as their proto value names, e.g. ``"TASK_STATE_WORKING"`` (D5).
 - Unrecognized fields are ignored on parse (section 5.7, D4).
 - Optional fields are ``None`` when absent and omitted from wire output (D12).
@@ -156,7 +156,7 @@ class TaskState(StrEnum):
 
     @property
     def is_interrupted(self) -> bool:
-        """Interrupted states per section 3.2.2: task paused awaiting input/auth."""
+        """Interrupted states per section 3.2.2: task paused awaiting input or auth."""
         return self in _INTERRUPTED_STATES
 
     @classmethod
@@ -222,7 +222,7 @@ class Role(StrEnum):
 class Part(A2AModel):
     """proto ``Part`` (section 4.1.6): oneof content = text | raw | url | data.
 
-    There is no ``kind`` discriminator in v1.0 — the member name is the discriminator
+    There is no ``kind`` discriminator in v1.0. The member name is the discriminator
     (Appendix A.2.1). ``filename``, ``mediaType``, ``metadata`` are shared by all
     variants. Note (D12): a ``data`` member holding JSON ``null`` is treated as absent.
     """
@@ -304,8 +304,8 @@ class Task(A2AModel):
 
 
 class TaskStatusUpdateEvent(A2AModel):
-    """proto ``TaskStatusUpdateEvent`` (section 4.2.1). No ``final`` flag in v1.0 —
-    stream end is signaled by a terminal state plus stream close (section 3.1.2)."""
+    """proto ``TaskStatusUpdateEvent`` (section 4.2.1). No ``final`` flag in v1.0.
+    Stream end is signaled by a terminal state plus stream close (section 3.1.2)."""
 
     task_id: str
     context_id: str
@@ -351,7 +351,7 @@ class StreamResponse(A2AModel):
 
 
 # ---------------------------------------------------------------------------
-# Operation requests/responses (spec sections 3.1, 3.2)
+# Operation requests and responses (spec sections 3.1, 3.2)
 # ---------------------------------------------------------------------------
 
 
@@ -365,8 +365,8 @@ class AuthenticationInfo(A2AModel):
 
 class TaskPushNotificationConfig(A2AModel):
     """proto ``TaskPushNotificationConfig`` (sections 4.3.1, 10.5.1). This one message is
-    both the Create request and the Create/Get response (there is no separate
-    ``PushNotificationConfig`` message in v1.0 — the rendered section 4.3.1 table is a
+    both the Create request and the Create or Get response (there is no separate
+    ``PushNotificationConfig`` message in v1.0: the rendered section 4.3.1 table is a
     site build bug; see docs/spec-notes.md section 9)."""
 
     url: str
@@ -380,8 +380,8 @@ class TaskPushNotificationConfig(A2AModel):
 class SendMessageConfiguration(A2AModel):
     """proto ``SendMessageConfiguration`` (section 3.2.2). All fields optional.
 
-    ``returnImmediately`` false/unset = blocking (wait for terminal or interrupted
-    state). v0.3's ``blocking``/``pushNotificationConfig`` fields do not exist in v1.0.
+    ``returnImmediately`` false or unset = blocking (wait for terminal or interrupted
+    state). v0.3's ``blocking`` and ``pushNotificationConfig`` fields do not exist in v1.0.
     """
 
     accepted_output_modes: list[str] | None = None
@@ -391,7 +391,7 @@ class SendMessageConfiguration(A2AModel):
 
 
 class SendMessageRequest(A2AModel):
-    """proto ``SendMessageRequest`` (section 3.2.1) — params of SendMessage and
+    """proto ``SendMessageRequest`` (section 3.2.1), params of SendMessage and
     SendStreamingMessage (section 9.4.1/9.4.2)."""
 
     message: Message
@@ -496,7 +496,7 @@ class ListTaskPushNotificationConfigsResponse(A2AModel):
 
 class DeleteTaskPushNotificationConfigRequest(A2AModel):
     """proto message of the same name (section 3.1.10). Deletion MUST be idempotent;
-    the JSON-RPC result is unspecified — counterpart emits ``result: null``."""
+    the JSON-RPC result is unspecified, so counterpart emits ``result: null``."""
 
     task_id: str
     id: str
@@ -564,7 +564,7 @@ class ClientCredentialsOAuthFlow(A2AModel):
 
 
 class ImplicitOAuthFlow(A2AModel):
-    """proto ``ImplicitOAuthFlow`` — deprecated in v1.0 (use Authorization Code + PKCE).
+    """proto ``ImplicitOAuthFlow``, deprecated in v1.0 (use Authorization Code + PKCE).
     The proto marks no field REQUIRED."""
 
     authorization_url: str | None = None
@@ -573,7 +573,7 @@ class ImplicitOAuthFlow(A2AModel):
 
 
 class PasswordOAuthFlow(A2AModel):
-    """proto ``PasswordOAuthFlow`` — deprecated in v1.0. No field REQUIRED."""
+    """proto ``PasswordOAuthFlow``, deprecated in v1.0. No field REQUIRED."""
 
     token_url: str | None = None
     refresh_url: str | None = None
@@ -748,7 +748,7 @@ class AgentCard(A2AModel):
     (sections 8.1-8.2, 14.3).
 
     ``securityRequirements`` is the proto-normative JSON name; the section 8.5 sample
-    card calls it ``security`` — both are accepted on parse, ``securityRequirements``
+    card calls it ``security``. Both are accepted on parse, ``securityRequirements``
     is emitted (D9).
     """
 
@@ -834,7 +834,7 @@ class JSONRPCSuccessResponse(A2AModel):
     jsonrpc: Literal["2.0"] = "2.0"
 
     def to_wire(self) -> dict[str, Any]:
-        # Spec examples order keys jsonrpc, id, result (section 9.4.2). result/id are
+        # Spec examples order keys jsonrpc, id, result (section 9.4.2). result and id are
         # kept even when null (JSON-RPC requires the result member on success).
         dumped = self.model_dump(mode="json", by_alias=True)
         return {"jsonrpc": self.jsonrpc, "id": dumped.get("id"), "result": dumped.get("result")}

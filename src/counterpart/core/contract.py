@@ -1,11 +1,11 @@
-"""Contract assertions — verify a delegated *result*, not just the protocol.
+"""Contract assertions: verify the delegated *result* itself, and not only the protocol exchange.
 
 This is counterpart's centerpiece and it is deliberately protocol-agnostic: a ``Contract``
 verifies an arbitrary result payload (a dict, a value, whatever a protocol adapter hands
 it) against an expected structural shape plus predicates, and records the counterparty's
-self-reported status. The pairing of "claimed success" with "checks failed" is what makes
-silent partial completion — a peer that reports ``completed`` while returning incomplete or
-corrupt output — a single, legible assertion instead of a debugging session.
+self-reported status. The pairing of "claimed success" with "checks failed" is what turns a
+peer that reports ``completed`` while returning incomplete or corrupt output into a single,
+legible assertion instead of a debugging session.
 
 The shape is a trimmed version of the delegation contract in Prakash, "The Provenance
 Paradox in Multi-Agent LLM Routing" (arXiv:2603.18043): we keep the parts that make a
@@ -36,8 +36,8 @@ class FailureCategory(StrEnum):
     """Typed failure categories (adapted from the LDP paper's typed failures).
 
     Kept to the three a contract can actually determine from a returned result. All three
-    are non-retryable contract violations — rerouting to another peer, not retrying, is the
-    correct response (per the paper's ``policy`` category).
+    are non-retryable contract violations. Rerouting to another peer, rather than retrying, is
+    the correct response (per the paper's ``policy`` category).
     """
 
     STRUCTURE = "structure"  # result did not match the expected shape (no usable receipt)
@@ -70,7 +70,7 @@ class ContractReport(Generic[ReceiptT]):
 
     @property
     def contract_violated(self) -> bool:
-        """True if any check failed — i.e. the delegated work is not acceptable."""
+        """True if any check failed, i.e. the delegated work is not acceptable."""
         return bool(self.failures)
 
     @property
@@ -134,7 +134,7 @@ class Contract(Generic[ReceiptT]):
 
     ``returns`` accepts a Pydantic model or any type usable with ``TypeAdapter`` (e.g. a
     ``TypedDict`` or ``dict[str, float]``). Predicates run only if the structural check
-    passed — there is no point asserting on a receipt that never parsed.
+    passed. There is no point asserting on a receipt that never parsed.
     """
 
     def __init__(self, objective: str = "delegated result") -> None:
@@ -167,7 +167,7 @@ class Contract(Generic[ReceiptT]):
         surprises people:
 
         By default (``strict=False``) pydantic's lax mode applies, so a peer returning
-        ``{"total": "812.55"}`` — a *string* where your model declares ``float`` — is coerced
+        ``{"total": "812.55"}``, a *string* where your model declares ``float``, is coerced
         to ``812.55`` and **passes**. Any predicate you wrote then sees a real float, so
         ``isinstance(x, float)`` cannot save you. That is normal pydantic behaviour, but in a
         library whose job is catching type-confused payloads it is a trap: you may believe you
@@ -180,12 +180,12 @@ class Contract(Generic[ReceiptT]):
 
         Lax remains the default deliberately: plenty of real services legitimately send
         numbers as strings, and an over-strict contract that flags valid traffic gets switched
-        off entirely — which is worse than no contract. Choose per domain: strict when you own
+        off entirely, which is worse than no contract. Choose per domain: strict when you own
         both ends or the wire format is pinned, lax when tolerating sloppy-but-usable peers.
 
         Passing ``None`` raises rather than silently disabling the check. ``.returns(None)``
         reads like "returns nothing" but would install no shape at all, so the contract would
-        accept any payload and report ``satisfied`` — a check that silently passes everything
+        accept any payload and report ``satisfied``. A check that silently passes everything
         is worse than no check, because the caller believes it ran. To deliberately skip
         structural validation, simply do not call ``returns()``.
         """
@@ -203,7 +203,7 @@ class Contract(Generic[ReceiptT]):
             shape = create_model(model_name, **definitions)
         if shape is None:
             raise TypeError(
-                "Contract.returns() needs a shape: either returns(Model) / returns(dict[str, "
+                "Contract.returns() needs a shape: either returns(Model) or returns(dict[str, "
                 "float]), or field keywords like returns(price=float). Calling it with nothing "
                 "would disable structural validation while still reporting success; to check "
                 "only predicates, omit returns() entirely."
@@ -273,7 +273,7 @@ class Contract(Generic[ReceiptT]):
         self, *, result: Any, reported_status: str | None = None
     ) -> ContractReport[ReceiptT]:
         """Verify a delegated ``result`` (and the peer's ``reported_status``) against this
-        contract. Never raises for a failed check — the outcome lives in the report."""
+        contract. Never raises for a failed check. The outcome lives in the report."""
         checks: list[CheckResult] = []
 
         receipt, structure_check = self._parse(result)

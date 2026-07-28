@@ -77,7 +77,7 @@ peer lets you down instead of somewhere later.
 
 ## Personas
 
-Every persona is deterministic, needs no LLM, and drives a real A2A task lifecycle.
+Every persona is deterministic, needs no LLM, and walks a real A2A task through its states.
 
 | Persona | What it does |
 | --- | --- |
@@ -138,43 +138,39 @@ requests and reports what came back.
 
 ## Examples
 
-There are four runnable scenarios in [examples](examples), each in a domain where the
-counterparty genuinely belongs to someone else, and each built around a different kind of
-failure.
+Five runnable scenarios in [examples](examples), each in a domain where the counterparty genuinely
+belongs to somebody else, and each built around a different kind of failure.
 
-[Freight procurement](examples/freight_procurement.py) collects quotes from competing carriers
-and picks the cheapest usable one. The naive version books the carrier whose completed quote
-lists `price` as `"call for rate"`, and sends that string to invoicing.
+- [Freight procurement](examples/freight_procurement.py) picks the cheapest usable quote. The naive
+  version books the carrier whose `price` is the string `"call for rate"` and sends that to
+  invoicing.
+- [Freight edge cases](examples/freight_edge_cases.py) has 22 ways a quote is unusable, and 14 that
+  look wrong and are perfectly normal. Checking the 22 changes which carrier you book, and the right
+  answer costs $592.50 more than the cheapest bid.
+- [Prior authorization](examples/prior_authorization.py) is a clinic getting a procedure approved by
+  an insurer before performing it, with money and patient safety attached. It models 25 replies that
+  all report success. The standard's own published example of a *pending* decision reports success,
+  with the only honest signal in an optional nested field.
+- [Satellite downlink](examples/satellite_downlink.py) schedules a pass with a ground station. Twelve
+  plans that all validate and each describe a different physical reality, such as an elevation in
+  radians where the field says degrees. This is the class of mistake that cost NASA the Mars Climate
+  Orbiter.
+- [Chaos multihop](examples/chaos_multihop.py) is deliberately excessive. Four hops, each a separate
+  HTTP server, auth passed along the chain, twenty concurrent users, and corruption injected at the
+  deepest hop. It still gets caught at the top.
 
-[Prior authorization](examples/prior_authorization.py) is a clinic getting a procedure approved
-by a health insurer before performing it, which is a real cross-company agent problem with money
-and patient safety attached. It models 25 insurer responses that all report `completed`, taken
-from the healthcare messaging standards and from billing forums where people describe what
-actually goes wrong. Each is labelled by how well attested it is, and two are marked unattested
-because I could not find a real case for them. One of them is worth the click: the standard's own
-published example of a *pending* decision reports success, with the only honest signal buried in
-an optional nested field.
-
-[Satellite downlink](examples/satellite_downlink.py) schedules a pass with a ground station
-network. Twelve plans that all validate and all describe a different physical reality: a window
-handed over in GPS time, elevation in radians where the field says degrees, an inertial frame
-where you need an earth fixed one. This is the failure that cost NASA the Mars Climate Orbiter.
-
-[Chaos multihop](examples/chaos_multihop.py) is deliberately excessive. Four hops, each a
-separate HTTP server, auth passed along the chain, twenty concurrent users, and corruption
-injected at the deepest hop. Corruption three hops away still gets caught at the top.
-
-Each one checks two things, and the second matters more. Every unusable answer has to be caught,
-and every legitimate answer has to be left alone.
+Each one checks two things, and the second matters more. Every unusable answer has to be caught, and
+every legitimate answer has to be left alone.
 
 That second half is where the real difficulty turned out to be. Going through the actual industry
-value sets found four bugs in the contracts I had written for these examples, and every single one
-was a false positive. My checks were rejecting good answers: an approval code I had not thought to
-accept, an id that came back correct but padded with spaces, and a date compared as text so that
-`07/31/2026` slipped past a check it should have failed. None of the four was a missed catch.
+value sets found four bugs in the contracts I had written, and every single one was a false positive.
+My checks were rejecting good answers: an approval code I had not thought to accept, an id that came
+back correct but padded with spaces, a date compared as text so that `07/31/2026` slipped past a
+check it should have failed, and a currency of `"usd"` rejected because I had only thought of
+`"USD"`. None of the four was a missed catch.
 
-That is the trap with this kind of testing. Catching bad data is easy. A checker that also flags
-good data gets switched off, and then you are back to having none, so both examples test for false
+That is the trap with this kind of testing. Catching bad data is easy. A checker that also flags good
+data gets switched off, and then you are back to having none, so every example tests for false
 positives explicitly.
 
 ## One thing to know about contracts
@@ -205,17 +201,16 @@ the library goes quiet.
 ## Design
 
 The core has no protocol code in it. A2A is one adapter, and a test enforces the boundary, so
-the contract engine also works on a plain HTTP response, an MCP style tool result, or a
-function return.
+the contract engine also works on a plain HTTP response or a function return.
 
 - [docs/spec-notes.md](docs/spec-notes.md) maps A2A v1.0 to the code, citing the spec
-  throughout. Wire types are checked against the vendored normative proto.
+  throughout. Wire types are checked against the protocol's own proto file, checked into the repo.
 - [docs/prior-art.md](docs/prior-art.md) covers what already exists and where this fits.
 - [docs/roadmap.md](docs/roadmap.md) lists what is out of scope and what is known to be missing.
 
 ## Status
 
-Version 0.1.3, built against A2A spec v1.0. The API will change. Apache-2.0.
+Version 0.1.4, built against A2A spec v1.0. The API will change. Apache-2.0.
 
 If you have hit this failure in something you built, I would like to hear about it. Open an
 issue with the shape of the response that fooled you.

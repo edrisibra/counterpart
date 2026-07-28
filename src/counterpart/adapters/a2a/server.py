@@ -4,7 +4,7 @@ This is the A2A adapter's server role. It renders a protocol-agnostic persona (a
 ``core.Behaviour`` emitting directives) onto the A2A task lifecycle: it serves an Agent
 Card at the well-known path, accepts JSON-RPC 2.0 requests, walks tasks through
 ``submitted → working → input-required → completed/failed/canceled``, returns artifacts,
-and streams status/artifact events over SSE.
+and streams status and artifact events over SSE.
 
 v0 implements: ``SendMessage`` (blocking + returnImmediately), ``SendStreamingMessage``
 (SSE), ``GetTask``, ``CancelTask``. ``SubscribeToTask`` and the push-config methods return
@@ -224,7 +224,7 @@ class A2AServer:
 
     async def _get_task(self, rpc: JSONRPCRequest) -> Response:
         task_id = (rpc.params or {}).get("id")
-        if not isinstance(task_id, str):  # missing/non-string REQUIRED id -> bad params, not 404
+        if not isinstance(task_id, str):  # missing or non-string REQUIRED id -> bad params, not 404
             return self._error(rpc.id, A2AErrorCode.INVALID_PARAMS)
         record = self._tasks.get(task_id)
         if record is None:
@@ -333,7 +333,7 @@ class A2AServer:
             yield self._status_event(record)
             return
         if isinstance(d, EmitRawStatus):
-            # v0: only valid states; an arbitrary/illegal raw wire status is a roadmap item.
+            # v0: only valid states; an arbitrary or illegal raw wire status is a roadmap item.
             state = TaskState.coerce(d.status)
             self._set_state(record, state, agent_text=d.message, force=d.force)
             yield self._status_event(record)
@@ -401,7 +401,7 @@ class A2AServer:
         """JSON-RPC 2.0 allows only a string, number, or null as ``id``.
 
         A hostile or broken client can send an object or array. Echoing that back would fail
-        model validation while we are *already* building an error response — turning a
+        model validation while we are *already* building an error response, which turns a
         malformed request into a crashed handler. Anything non-scalar becomes ``null``, which
         is what the spec prescribes when the id cannot be determined.
         """

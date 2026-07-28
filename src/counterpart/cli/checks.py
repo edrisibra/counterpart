@@ -1,8 +1,9 @@
 """Conformance checks and adversarial probes for the CLI, run against a live A2A endpoint.
 
 Each check cites the spec section it verifies (from docs/spec-notes.md). This is a fast,
-pip-installed smoke report for the dev loop — NOT the full a2a-tck matrix (which the docs
-point to). Checks return structured outcomes so the CLI can render a table or JSON.
+pip-installed smoke report for the dev loop. The full a2a-tck matrix, which the docs point
+to, covers far more ground. Checks return structured outcomes so the CLI can render a table
+or JSON.
 """
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ def _jsonrpc_endpoint(base_url: str, card: AgentCard | None) -> str:
     """The JSON-RPC endpoint: the card's declared JSONRPC *path* on the base origin.
 
     We keep the origin we're actually talking to (the served host:port) and borrow only the
-    path the card declares — so an agent that exposes JSON-RPC at ``/a2a/v1`` is hit there,
+    path the card declares: an agent that exposes JSON-RPC at ``/a2a/v1`` is hit there,
     while a card carrying a placeholder host doesn't send us to an unreachable origin.
     """
     base = urlsplit(base_url)
@@ -311,7 +312,7 @@ async def _check_error(
 
 
 # --------------------------------------------------------------------------
-# attack: adversarial probes (v0 — observe & report, not a security verdict)
+# attack: adversarial probes (v0 observes and reports; a security verdict is out of scope)
 # --------------------------------------------------------------------------
 
 _INJECTION_SENTINEL = "PWNED_A2A_SANDBOX_4711"
@@ -321,7 +322,7 @@ _INJECTION_SENTINEL = "PWNED_A2A_SANDBOX_4711"
 class AttackOutcome:
     id: str
     description: str
-    technique: str  # named catalog technique (MITRE ATLAS / OWASP)
+    technique: str  # named catalog technique (MITRE ATLAS or OWASP)
     observation: str
     flag: str  # "handled" | "obeyed" | "server-error" | "info"
 

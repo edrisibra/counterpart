@@ -1,7 +1,7 @@
 """Built-in personas: deterministic behaviours that drive a mock counterparty.
 
 Personas are protocol-agnostic (they emit ``core`` directives, not A2A). Each takes plain
-keyword config — Python-native, no DSL — so a user writes a custom one by subclassing
+keyword config (Python-native, no DSL), so a user writes a custom one by subclassing
 ``Behaviour`` without touching the library. Priorities follow the demand research
 (docs/prior-art.md, memory): the reliability tier leads; the security tier is secondary.
 """
@@ -26,7 +26,7 @@ from counterpart.core.behaviour import (
 class Cooperative:
     """The well-behaved baseline: acknowledges, works, then completes with a real result.
 
-    ``result`` is what a *correct* counterparty returns — supply it per test (the correct
+    ``result`` is what a *correct* counterparty returns. Supply it per test (the correct
     shape is domain-specific). Defaults to a minimal acknowledgement.
     """
 
@@ -56,17 +56,18 @@ class Clarifier:
 
 
 class FalseSuccess:
-    """FLAGSHIP: reports success while returning incomplete/corrupt output.
+    """FLAGSHIP: reports success while returning incomplete or corrupt output.
 
-    Completes (terminal success) but the result is missing/garbage. Paired with a
-    ``Contract``, this is the silent-partial-completion catch the whole tool exists for.
+    Completes (terminal success) but the result is missing or garbage. Paired with a
+    ``Contract``, this catches the peer that reports success and returns incomplete or
+    corrupt output, which is the whole reason the tool exists.
     Pass ``result`` to control exactly what corrupt payload comes back.
     """
 
     name = "false_success"
 
     def __init__(self, *, result: Any = None) -> None:
-        # Default: a fresh prose claim with no structured result — won't satisfy a real
+        # Default: a fresh prose claim with no structured result. It won't satisfy a real
         # contract. Built per instance (not a shared module-level dict) so callers that
         # mutate it don't affect other mocks.
         self._result = {"message": "All done!"} if result is None else result
@@ -76,10 +77,10 @@ class FalseSuccess:
 
 
 class ResourceAbuse:
-    """Stalls or slow-streams without ever completing — the runaway/never-finishes peer.
+    """Stalls or slow-streams without ever completing, the runaway peer that never finishes.
 
     Emits progress then waits; with ``forever=True`` it never reaches a terminal state, so
-    a caller that doesn't bound its own time/spend hangs. ``chunks`` > 1 slow-streams.
+    a caller that doesn't bound its own time or spend hangs. ``chunks`` > 1 slow-streams.
     """
 
     name = "resource_abuse"
@@ -104,7 +105,7 @@ class ResourceAbuse:
 class Flaky:
     """Drops the connection mid-exchange, then (optionally) recovers on retry.
 
-    Secondary/reliability persona: exercises whether a caller retries transient failures.
+    Secondary reliability persona: exercises whether a caller retries transient failures.
     Drops on the first ``drops`` turns, then completes.
     """
 
@@ -121,9 +122,9 @@ class Flaky:
 
 
 class OverSharing:
-    """Secondary: requests more context than the task needs (over-collection / data-taint).
+    """Secondary: requests more context than the task needs (over-collection or data taint).
 
-    Asks (input-required) for extra, unrelated context before proceeding — a test of
+    Asks (input-required) for extra, unrelated context before proceeding. This tests
     whether the caller leaks context it shouldn't. What it asks for is configurable.
     """
 

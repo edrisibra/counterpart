@@ -3,7 +3,7 @@
 Hard rule (see package docstring): nothing here may import or assume A2A. States are
 opaque strings; a protocol adapter supplies the concrete state set via ``LifecycleSpec``.
 The A2A adapter, for example, builds a spec from ``TaskState`` and marks
-``TASK_STATE_COMPLETED`` etc. terminal — but this module never names them.
+``TASK_STATE_COMPLETED`` etc. terminal, but this module never names them.
 """
 
 from __future__ import annotations

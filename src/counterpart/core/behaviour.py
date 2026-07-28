@@ -1,6 +1,6 @@
 """Protocol-agnostic behaviour: deterministic scripts that drive a mock counterparty.
 
-A ``Behaviour`` reacts to inbound turns by emitting ``Directive`` effects — an abstract
+A ``Behaviour`` reacts to inbound turns by emitting ``Directive`` effects, an abstract
 vocabulary a protocol adapter renders into wire actions (A2A task-status transitions,
 artifacts, SSE, dropped connections, ...). Nothing here is A2A-specific, so the same
 persona runs in-process (no server) or over any adapter.
@@ -8,7 +8,7 @@ persona runs in-process (no server) or over any adapter.
 Directives are *semantic*, not protocol strings: a behaviour says ``Complete(result=...)``,
 and the A2A adapter decides that means ``TASK_STATE_COMPLETED`` + an artifact. The one
 escape hatch, ``EmitRawStatus(force=True)``, lets a future spec-violating persona push an
-arbitrary/illegal status through the adapter on purpose.
+arbitrary or illegal status through the adapter on purpose.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ class Progress(Directive):
 
 @dataclass(frozen=True)
 class NeedInput(Directive):
-    """Pause and ask the caller for more input (adapter: interrupted/input-required)."""
+    """Pause and ask the caller for more input (adapter: interrupted or input-required)."""
 
     question: str
 
@@ -73,7 +73,7 @@ class Deliver(Directive):
 class Complete(Directive):
     """Terminal success, optionally carrying the final result artifact.
 
-    ``false_success`` completes with a missing/corrupt ``result`` on purpose: the status
+    ``false_success`` completes with a missing or corrupt ``result`` on purpose: the status
     says done, the artifact is garbage, and a contract catches the gap.
     """
 
@@ -90,21 +90,21 @@ class Fail(Directive):
 
 @dataclass(frozen=True)
 class Wait(Directive):
-    """Delay before the next directive — stalling / slow-streaming (resource_abuse)."""
+    """Delay before the next directive: stalling or slow-streaming (resource_abuse)."""
 
     seconds: float
 
 
 @dataclass(frozen=True)
 class Drop(Directive):
-    """Sever the connection mid-exchange (flaky / resource_abuse)."""
+    """Sever the connection mid-exchange (flaky or resource_abuse)."""
 
 
 @dataclass(frozen=True)
 class EmitRawStatus(Directive):
     """Escape hatch: push an arbitrary status string through the adapter.
 
-    ``force=True`` asks the adapter to bypass its transition policy — the way a
+    ``force=True`` asks the adapter to bypass its transition policy. That is how a
     spec-violating persona emits an illegal status on purpose.
     """
 

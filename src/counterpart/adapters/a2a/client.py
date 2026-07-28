@@ -1,7 +1,7 @@
 """A2A client role: send a task to an A2A agent and get back a verifiable result.
 
-Talks to any A2A v1.0 JSON-RPC agent — a real one over the network (``base_url``) or an
-in-process one over ASGI (``app``, no socket, for fast/deterministic tests). Returns a
+Talks to any A2A v1.0 JSON-RPC agent: a real one over the network (``base_url``) or an
+in-process one over ASGI (``app``, no socket, for fast, deterministic tests). Returns a
 :class:`TaskResult` that carries the peer's self-reported status next to the extracted
 result, and can verify both against a :class:`~counterpart.core.contract.Contract`.
 

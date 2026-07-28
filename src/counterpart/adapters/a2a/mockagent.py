@@ -1,9 +1,9 @@
 """MockAgent: the developer-facing facade for the A2A adapter, both roles.
 
-- **Server role** — ``MockAgent(persona="false_success")`` presents a spec-valid A2A agent
+- **Server role**: ``MockAgent(persona="false_success")`` presents a spec-valid A2A agent
   driven by that persona. ``.serve()`` runs it on a real ephemeral port (point your agent at
   the URL); ``.client()`` talks to it in-process over ASGI (fast tests, no socket).
-- **Client role** — ``.send_task(target_url, text, contract=...)`` sends a task TO your
+- **Client role**: ``.send_task(target_url, text, contract=...)`` sends a task TO your
   agent and returns a verifiable :class:`TaskResult`.
 """
 
@@ -52,7 +52,7 @@ def serve_asgi(app: Starlette, host: str = "127.0.0.1", port: int = 0) -> Iterat
         yield f"http://{host}:{bound_port}"
     finally:
         # Graceful shutdown first (clean, no cancellation noise). Only if a handler is stuck
-        # — e.g. a stalling persona's in-flight Wait — escalate to force_exit so the daemon
+        # (e.g. a stalling persona's in-flight Wait) escalate to force_exit so the daemon
         # thread can't hang.
         server.should_exit = True
         thread.join(timeout=3.0)
@@ -113,7 +113,7 @@ class MockAgent:
 
     @property
     def received_requests(self) -> list[Any]:
-        """Every JSON-RPC request this mock received — for assertions on what your agent sent."""
+        """Every JSON-RPC request this mock received, so you can assert on what your agent sent."""
         return self._server.received_requests
 
     def client(self, **kw: Any) -> A2AClient:
