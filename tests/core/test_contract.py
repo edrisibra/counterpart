@@ -117,3 +117,44 @@ def test_summary_is_readable() -> None:
     text = report.summary()
     assert "VIOLATED" in text
     assert "freight quote" in text
+
+
+# --- type coercion: the trap, and the escape hatch -------------------------
+
+
+class Fare(BaseModel):
+    total: float
+
+
+def test_lax_mode_coerces_a_stringified_number_and_passes() -> None:
+    """Documents a genuine trap (found by an end-to-end chaos test).
+
+    A peer sending `"812.55"` where the model declares `float` is COERCED by pydantic's
+    default lax mode, so the contract is satisfied and any `isinstance(x, float)` predicate
+    sees a real float. Users must know this, hence the explicit test.
+    """
+    contract = (
+        Contract("fare")
+        .returns(Fare)
+        .require("is_number", lambda f: isinstance(f.total, (int, float)))
+    )
+    report = contract.verify(result={"total": "812.55"})
+    assert report.satisfied  # coerced, not rejected
+    assert report.receipt is not None and report.receipt.total == 812.55
+
+
+def test_strict_mode_rejects_a_stringified_number() -> None:
+    """`strict=True` is the escape hatch for callers who need real type fidelity."""
+    contract = Contract("fare").returns(Fare, strict=True)
+    report = contract.verify(result={"total": "812.55"})
+    assert report.contract_violated
+    assert report.typed_failure is FailureCategory.STRUCTURE
+    # ...and a genuine number still passes, so this is not just "reject everything".
+    assert contract.verify(result={"total": 812.55}).satisfied
+
+
+def test_strict_mode_also_applies_to_non_pydantic_shapes() -> None:
+    lax = Contract("p").returns(dict[str, float])
+    strict = Contract("p").returns(dict[str, float], strict=True)
+    assert lax.verify(result={"usd": "1.0"}).satisfied
+    assert strict.verify(result={"usd": "1.0"}).contract_violated

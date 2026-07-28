@@ -126,17 +126,38 @@ class Contract(Generic[ReceiptT]):
         self.objective = objective
         self._model: Any = None
         self._adapter: TypeAdapter[Any] | None = None
+        self._strict = False
         self._requirements: list[_Requirement] = []
         self._expected_status: Any = _UNSET
 
-    def returns(self, shape: type[ReceiptT] | Any) -> Contract[ReceiptT]:
+    def returns(self, shape: type[ReceiptT] | Any, *, strict: bool = False) -> Contract[ReceiptT]:
         """Declare the structural receipt: the returned result MUST parse into this shape.
 
+        ``strict`` controls type coercion, and the default is worth understanding because it
+        surprises people:
+
+        By default (``strict=False``) pydantic's lax mode applies, so a peer returning
+        ``{"total": "812.55"}`` — a *string* where your model declares ``float`` — is coerced
+        to ``812.55`` and **passes**. Any predicate you wrote then sees a real float, so
+        ``isinstance(x, float)`` cannot save you. That is normal pydantic behaviour, but in a
+        library whose job is catching type-confused payloads it is a trap: you may believe you
+        are getting type validation that you are not.
+
+        Pass ``strict=True`` to reject coercions outright, so a stringified number, a
+        ``"true"`` for a bool, or a numeric string for an int is a ``structure`` failure::
+
+            Contract("fare").returns(Fare, strict=True)
+
+        Lax remains the default deliberately: plenty of real services legitimately send
+        numbers as strings, and an over-strict contract that flags valid traffic gets switched
+        off entirely — which is worse than no contract. Choose per domain: strict when you own
+        both ends or the wire format is pinned, lax when tolerating sloppy-but-usable peers.
+
         Passing ``None`` raises rather than silently disabling the check. ``.returns(None)``
-        reads like "returns nothing" but would previously install no shape at all, so the
-        contract accepted any payload and reported ``satisfied`` — a check that silently
-        passes everything is worse than no check, because the caller believes it ran. To
-        deliberately skip structural validation, simply do not call ``returns()``.
+        reads like "returns nothing" but would install no shape at all, so the contract would
+        accept any payload and report ``satisfied`` — a check that silently passes everything
+        is worse than no check, because the caller believes it ran. To deliberately skip
+        structural validation, simply do not call ``returns()``.
         """
         if shape is None:
             raise TypeError(
@@ -145,6 +166,7 @@ class Contract(Generic[ReceiptT]):
                 "only predicates."
             )
         self._model = shape
+        self._strict = strict
         if not (isinstance(shape, type) and issubclass(shape, BaseModel)):
             self._adapter = TypeAdapter(shape)
         return self
@@ -164,10 +186,10 @@ class Contract(Generic[ReceiptT]):
             return result, None
         try:
             if isinstance(self._model, type) and issubclass(self._model, BaseModel):
-                receipt = self._model.model_validate(result)
+                receipt = self._model.model_validate(result, strict=self._strict)
             else:
                 assert self._adapter is not None
-                receipt = self._adapter.validate_python(result)
+                receipt = self._adapter.validate_python(result, strict=self._strict)
         except ValidationError as exc:
             name = getattr(self._model, "__name__", str(self._model))
             errors = exc.errors()

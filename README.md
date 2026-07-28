@@ -56,6 +56,23 @@ async def test_my_agent_rejects_a_lying_peer(mock_agent):
 `contract` into your agent's delegation path and it rejects the garbage instead of forwarding
 it downstream.
 
+### One thing to know before you trust a contract
+
+By default `.returns(Model)` uses pydantic's normal lax mode, so a peer sending
+`{"price": "1420.00"}` — a **string** where your model says `float` — is coerced and
+**passes**. Predicates then see a real float, so `isinstance(x, float)` cannot save you.
+
+That is standard pydantic behaviour, but it is a trap here: you may think you are getting type
+validation that you are not. If you need real type fidelity, ask for it:
+
+```python
+Contract("fare").returns(Fare, strict=True)   # a stringified number is now a failure
+```
+
+Lax stays the default on purpose — plenty of real services legitimately send numbers as
+strings, and a contract that flags valid traffic gets switched off entirely, which is worse
+than no contract. Use `strict=True` when you own both ends or the wire format is pinned.
+
 ## Persona gallery
 
 Every persona is deterministic (no LLM), toggle-configurable, and drives a real A2A task
