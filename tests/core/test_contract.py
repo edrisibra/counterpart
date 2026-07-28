@@ -158,3 +158,66 @@ def test_strict_mode_also_applies_to_non_pydantic_shapes() -> None:
     strict = Contract("p").returns(dict[str, float], strict=True)
     assert lax.verify(result={"usd": "1.0"}).satisfied
     assert strict.verify(result={"usd": "1.0"}).contract_violated
+
+
+# --- the short forms: less ceremony for the common case --------------------
+
+
+def test_field_keywords_build_the_shape_without_a_model_class() -> None:
+    """`returns(price=float)` saves defining a BaseModel for a simple check."""
+    contract = Contract().returns(price=float, currency=str)
+    assert contract.verify(result={"price": 1420.0, "currency": "USD"}).satisfied
+    # a missing field is a structure failure, because keyword fields are required
+    report = contract.verify(result={"price": 1420.0})
+    assert report.contract_violated
+    assert report.typed_failure is FailureCategory.STRUCTURE
+    # and so is prose instead of the shape
+    assert contract.verify(result={"message": "all done!"}).contract_violated
+
+
+def test_keyword_predicates_avoid_repeating_the_name() -> None:
+    contract = (
+        Contract()
+        .returns(price=float)
+        .require(
+            price_positive=lambda q: q.price > 0,
+            price_plausible=lambda q: q.price < 1_000_000,
+        )
+    )
+    assert contract.verify(result={"price": 100.0}).satisfied
+    failures = [c.name for c in contract.verify(result={"price": -1.0}).failures]
+    assert failures == ["price_positive"]
+
+
+def test_positional_require_still_works_for_awkward_names() -> None:
+    contract = Contract().returns(price=float).require("price > 0", lambda q: q.price > 0)
+    assert contract.verify(result={"price": -1.0}).failures[0].name == "price > 0"
+
+
+def test_objective_is_optional() -> None:
+    assert Contract().objective == "delegated result"
+    assert Contract("freight quote").objective == "freight quote"
+
+
+def test_returns_rejects_shape_and_keywords_together() -> None:
+    import pytest as _pytest
+
+    class Quote(BaseModel):
+        price: float
+
+    with _pytest.raises(TypeError, match="either a shape or field keywords"):
+        Contract().returns(Quote, price=float)
+
+
+def test_returns_with_nothing_raises_a_helpful_error() -> None:
+    import pytest as _pytest
+
+    with _pytest.raises(TypeError, match="needs a shape"):
+        Contract().returns()
+
+
+def test_require_with_nothing_raises() -> None:
+    import pytest as _pytest
+
+    with _pytest.raises(TypeError, match="at least one predicate"):
+        Contract().require()

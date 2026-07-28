@@ -217,3 +217,24 @@ def test_returns_none_raises_instead_of_silently_passing_everything() -> None:
     # Omitting returns() entirely is the legitimate way to check only predicates.
     report = Contract("x").require("ok", lambda r: r["ok"] is True).verify(result={"ok": True})
     assert report.satisfied
+
+
+async def test_ask_is_equivalent_to_the_client_context_manager() -> None:
+    """`peer.ask(text)` is the one-shot form; multi-turn still needs `.client()`."""
+    from counterpart import Contract
+
+    contract = Contract().returns(price=float)
+    peer = MockAgent("false_success")
+
+    short = await peer.ask("quote", contract=contract)
+    async with peer.client() as client:
+        long = await client.send_message("quote", contract=contract)
+
+    assert short.status == long.status == "completed"
+    assert short.contract_violated and long.contract_violated
+
+
+async def test_ask_supports_streaming_too() -> None:
+    result = await MockAgent("cooperative", result={"ok": True}).ask("go", stream=True)
+    assert result.completed
+    assert result.result == {"ok": True}

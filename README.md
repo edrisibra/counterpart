@@ -17,33 +17,39 @@ pip install counterpart
 ```
 
 ```python
-from pydantic import BaseModel
 from counterpart import Contract
 
 
-class Quote(BaseModel):
-    price: float
-    currency: str
+async def test_peer_lies_about_finishing(mock_agent):
+    peer = mock_agent("false_success")                    # reports done, returns garbage
+    quote = Contract().returns(price=float, currency=str)  # what a usable answer looks like
 
+    task = await peer.ask("Quote 2 pallets LA to Dallas", contract=quote)
 
-async def test_agent_rejects_a_lying_peer(mock_agent):
-    contract = (
-        Contract("freight quote")
-        .returns(Quote)
-        .require("price_is_number", lambda q: isinstance(q.price, (int, float)))
-        .expect_status("completed")
-    )
-
-    peer = mock_agent(persona="false_success")
-    async with peer.client() as client:
-        task = await client.send_message("Quote 2 pallets LA to Dallas", contract=contract)
-
-    assert task.status == "completed"   # the peer said it was done
-    assert task.contract_violated       # what it sent back was useless
+    assert task.status == "completed"   # the peer said it finished
+    assert task.contract_violated      # what it sent back was unusable
 ```
 
 Installing the package is the whole setup. The `mock_agent` fixture and the async
 configuration come with it, so there is no `conftest.py` to write.
+
+When you need more than that, the longer forms are there. Pass a pydantic model instead of
+field keywords, add named checks, and use `.client()` when a test needs several turns on one
+connection:
+
+```python
+contract = (
+    Contract("freight quote")
+    .returns(Quote, strict=True)
+    .require(price_positive=lambda q: q.price > 0)
+    .expect_status("completed")
+)
+
+peer = mock_agent("clarifier", question="Deliver by when?")
+async with peer.client() as client:
+    task = await client.send_message("Quote 2 pallets", contract=contract)
+    task = await client.reply(task.task.id, "Friday", context_id=task.task.context_id)
+```
 
 ## Why this exists
 

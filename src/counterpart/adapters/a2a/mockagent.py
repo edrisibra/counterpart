@@ -128,6 +128,30 @@ class MockAgent:
             self.card.supported_interfaces[0].url = f"{base}/"
             yield base
 
+    async def ask(
+        self,
+        text: str,
+        *,
+        contract: Contract[Any] | None = None,
+        stream: bool = False,
+        **kw: Any,
+    ) -> TaskResult:
+        """Send one message to this mock and return the result.
+
+        The one-shot form of ``.client()``. These are equivalent::
+
+            task = await peer.ask("Quote 2 pallets")
+
+            async with peer.client() as client:
+                task = await client.send_message("Quote 2 pallets")
+
+        Use ``.client()`` when a test needs several turns on the same connection, such as
+        answering a ``clarifier`` and continuing the task. Use ``ask()`` for everything else,
+        which is most of the time.
+        """
+        async with self.client() as client:
+            return await client.send_message(text, contract=contract, stream=stream, **kw)
+
     # -- client role -------------------------------------------------------
 
     async def send_task(

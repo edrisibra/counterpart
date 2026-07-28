@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 
 _UNSET = object()
 
@@ -122,7 +122,7 @@ class Contract(Generic[ReceiptT]):
     passed — there is no point asserting on a receipt that never parsed.
     """
 
-    def __init__(self, objective: str) -> None:
+    def __init__(self, objective: str = "delegated result") -> None:
         self.objective = objective
         self._model: Any = None
         self._adapter: TypeAdapter[Any] | None = None
@@ -130,8 +130,23 @@ class Contract(Generic[ReceiptT]):
         self._requirements: list[_Requirement] = []
         self._expected_status: Any = _UNSET
 
-    def returns(self, shape: type[ReceiptT] | Any, *, strict: bool = False) -> Contract[ReceiptT]:
+    def returns(
+        self,
+        shape: type[ReceiptT] | Any = None,
+        *,
+        strict: bool = False,
+        **fields: Any,
+    ) -> Contract[ReceiptT]:
         """Declare the structural receipt: the returned result MUST parse into this shape.
+
+        For a simple shape, name the fields inline and skip writing a model::
+
+            Contract().returns(price=float, currency=str)
+
+        For anything you reuse or want methods on, pass a model or type as usual::
+
+            Contract().returns(Quote)
+            Contract().returns(dict[str, float])
 
         ``strict`` controls type coercion, and the default is worth understanding because it
         surprises people:
@@ -159,11 +174,24 @@ class Contract(Generic[ReceiptT]):
         is worse than no check, because the caller believes it ran. To deliberately skip
         structural validation, simply do not call ``returns()``.
         """
+        if fields:
+            if shape is not None:
+                raise TypeError(
+                    "Contract.returns() takes either a shape or field keywords, not both."
+                )
+            # Build a throwaway model from the field keywords. Every field is required, which
+            # is the point: a peer omitting one is a structure failure.
+            model_name = "".join(w.capitalize() for w in self.objective.split()[:3]) or "Receipt"
+            definitions: dict[str, Any] = {
+                name: (annotation, ...) for name, annotation in fields.items()
+            }
+            shape = create_model(model_name, **definitions)
         if shape is None:
             raise TypeError(
-                "Contract.returns(None) would disable structural validation while still "
-                "reporting success. Pass a model/type, or omit returns() entirely to check "
-                "only predicates."
+                "Contract.returns() needs a shape: either returns(Model) / returns(dict[str, "
+                "float]), or field keywords like returns(price=float). Calling it with nothing "
+                "would disable structural validation while still reporting success; to check "
+                "only predicates, omit returns() entirely."
             )
         self._model = shape
         self._strict = strict
@@ -171,9 +199,33 @@ class Contract(Generic[ReceiptT]):
             self._adapter = TypeAdapter(shape)
         return self
 
-    def require(self, name: str, predicate: Predicate) -> Contract[ReceiptT]:
-        """Add a machine-verifiable predicate over the parsed receipt."""
-        self._requirements.append(_Requirement(name, predicate))
+    def require(
+        self,
+        name: str | None = None,
+        predicate: Predicate | None = None,
+        **predicates: Predicate,
+    ) -> Contract[ReceiptT]:
+        """Add machine-verifiable predicates over the parsed receipt.
+
+        The keyword form reads better and avoids repeating the name as a string::
+
+            .require(price_positive=lambda q: q.price > 0)
+            .require(has_id=lambda q: bool(q.id), in_usd=lambda q: q.currency == "USD")
+
+        The positional form stays available for names that are not valid identifiers::
+
+            .require("price > 0", lambda q: q.price > 0)
+        """
+        if name is not None:
+            if predicate is None:
+                raise TypeError("Contract.require(name, predicate) needs both arguments.")
+            self._requirements.append(_Requirement(name, predicate))
+        elif predicate is not None:
+            raise TypeError("Contract.require() got a predicate without a name.")
+        for label, fn in predicates.items():
+            self._requirements.append(_Requirement(label, fn))
+        if name is None and not predicates:
+            raise TypeError("Contract.require() needs at least one predicate.")
         return self
 
     def expect_status(self, status: str) -> Contract[ReceiptT]:
