@@ -238,3 +238,45 @@ async def test_ask_supports_streaming_too() -> None:
     result = await MockAgent("cooperative", result={"ok": True}).ask("go", stream=True)
     assert result.completed
     assert result.result == {"ok": True}
+
+
+async def test_contract_accepts_a_plain_dict_shorthand() -> None:
+    """`contract={"price": float}` is the compact form of Contract().returns(price=float)."""
+    from counterpart import Contract
+
+    peer = MockAgent("false_success")
+    short = await peer.ask("quote", contract={"price": float})
+    explicit = await peer.ask("quote", contract=Contract().returns(price=float))
+    assert short.contract_violated and explicit.contract_violated
+    assert [c.name for c in short.report.failures] == [c.name for c in explicit.report.failures]
+
+    ok = await MockAgent("cooperative", result={"price": 1420.0}).ask(
+        "quote", contract={"price": float}
+    )
+    assert not ok.contract_violated
+
+
+async def test_task_result_exposes_ids_directly() -> None:
+    """`task.id` rather than `task.task.id`."""
+    result = await MockAgent("cooperative", result={"ok": True}).ask("go")
+    assert result.id == result.task.id
+    assert result.context_id == result.task.context_id
+
+
+async def test_reply_takes_the_result_it_was_given() -> None:
+    """Callers should not have to thread task_id and context_id by hand."""
+    peer = MockAgent("clarifier", question="when?", result={"ok": True})
+    async with peer.client() as client:
+        first = await client.send_message("quote")
+        assert first.reached_state("input-required")
+        second = await client.reply(first, "Friday")  # no ids threaded
+    assert second.completed
+    assert second.context_id == first.context_id
+
+
+async def test_reply_still_accepts_a_bare_task_id() -> None:
+    peer = MockAgent("clarifier", question="when?", result={"ok": True})
+    async with peer.client() as client:
+        first = await client.send_message("quote")
+        second = await client.reply(first.id, "Friday", context_id=first.context_id)
+    assert second.completed

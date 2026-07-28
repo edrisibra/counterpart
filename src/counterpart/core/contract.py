@@ -98,6 +98,21 @@ class ContractReport(Generic[ReceiptT]):
         return self.satisfied
 
 
+def as_contract(spec: Contract[Any] | dict[str, Any]) -> Contract[Any]:
+    """Accept either a Contract or a plain ``{field: type}`` dict.
+
+    Adapters call this so ``contract=`` takes the compact form for a simple shape::
+
+        await peer.ask("Quote 2 pallets", contract={"price": float, "currency": str})
+
+    which is exactly ``Contract().returns(price=float, currency=str)``. Anything needing
+    predicates, a reusable model or strict typing builds a Contract directly.
+    """
+    if isinstance(spec, dict):
+        return Contract().returns(**spec)
+    return spec
+
+
 @dataclass(frozen=True)
 class _Requirement:
     name: str

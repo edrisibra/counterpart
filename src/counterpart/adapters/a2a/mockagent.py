@@ -132,7 +132,7 @@ class MockAgent:
         self,
         text: str,
         *,
-        contract: Contract[Any] | None = None,
+        contract: Contract[Any] | dict[str, Any] | None = None,
         stream: bool = False,
         **kw: Any,
     ) -> TaskResult:

@@ -39,7 +39,7 @@ from counterpart.adapters.a2a.types import (
     Task,
     TaskState,
 )
-from counterpart.core.contract import Contract, ContractReport
+from counterpart.core.contract import Contract, ContractReport, as_contract
 
 
 def _extract_result(task: Task) -> Any:
@@ -67,6 +67,16 @@ class TaskResult:
     task: Task
     states: list[str] = field(default_factory=list)  # friendly aliases, in order
     report: ContractReport[Any] | None = None
+
+    @property
+    def id(self) -> str:
+        """The task id, so callers write ``task.id`` rather than ``task.task.id``."""
+        return self.task.id
+
+    @property
+    def context_id(self) -> str | None:
+        """The context id grouping this task with its follow-ups."""
+        return self.task.context_id
 
     @property
     def status(self) -> str:
@@ -160,7 +170,7 @@ class A2AClient:
         task_id: str | None = None,
         context_id: str | None = None,
         stream: bool = False,
-        contract: Contract[Any] | None = None,
+        contract: Contract[Any] | dict[str, Any] | None = None,
     ) -> TaskResult:
         """Send a task (or a follow-up, if ``task_id`` is set) and return the result."""
         message = self._build_message(text, data=data, task_id=task_id, context_id=context_id)
@@ -173,14 +183,29 @@ class A2AClient:
         else:
             result = await self._send_blocking(request)
         if contract is not None:
-            result.report = contract.verify(result=result.result, reported_status=result.status)
+            result.report = as_contract(contract).verify(
+                result=result.result, reported_status=result.status
+            )
         return result
 
     async def reply(
-        self, task_id: str, text: str, *, context_id: str | None = None, **kw: Any
+        self, task: TaskResult | str, text: str, *, context_id: str | None = None, **kw: Any
     ) -> TaskResult:
-        """Continue an interrupted task (e.g. answer an input-required question, spec 3.4.3)."""
-        return await self.send_message(text, task_id=task_id, context_id=context_id, **kw)
+        """Continue an interrupted task, for example answering an input-required question.
+
+        Pass the result you already have and both ids are taken from it::
+
+            task = await client.send_message("Quote 2 pallets")
+            task = await client.reply(task, "Friday")
+
+        A bare task id still works, in which case supply ``context_id`` yourself if the peer
+        requires it to match (spec section 3.4.3).
+        """
+        if isinstance(task, TaskResult):
+            return await self.send_message(
+                text, task_id=task.id, context_id=context_id or task.context_id, **kw
+            )
+        return await self.send_message(text, task_id=task, context_id=context_id, **kw)
 
     async def _send_blocking(self, request: SendMessageRequest) -> TaskResult:
         rpc = JSONRPCRequest(method=A2AMethod.SEND_MESSAGE.value, id=1, params=request.to_wire())

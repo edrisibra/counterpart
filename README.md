@@ -17,14 +17,10 @@ pip install counterpart
 ```
 
 ```python
-from counterpart import Contract
-
-
 async def test_peer_lies_about_finishing(mock_agent):
-    peer = mock_agent("false_success")                    # reports done, returns garbage
-    quote = Contract().returns(price=float, currency=str)  # what a usable answer looks like
+    peer = mock_agent("false_success")     # reports done, returns garbage
 
-    task = await peer.ask("Quote 2 pallets LA to Dallas", contract=quote)
+    task = await peer.ask("Quote 2 pallets LA to Dallas", contract={"price": float})
 
     assert task.status == "completed"   # the peer said it finished
     assert task.contract_violated      # what it sent back was unusable
@@ -33,22 +29,21 @@ async def test_peer_lies_about_finishing(mock_agent):
 Installing the package is the whole setup. The `mock_agent` fixture and the async
 configuration come with it, so there is no `conftest.py` to write.
 
-When you need more than that, the longer forms are there. Pass a pydantic model instead of
-field keywords, add named checks, and use `.client()` when a test needs several turns on one
-connection:
+`{"price": float}` is shorthand for a contract that requires a `price` field which is a
+number. When you want more, build one properly. Pass a pydantic model, add named checks, and
+use `.client()` when a test needs several turns on one connection:
 
 ```python
 contract = (
     Contract("freight quote")
-    .returns(Quote, strict=True)
+    .returns(Quote, strict=True)                       # a real model, no coercion
     .require(price_positive=lambda q: q.price > 0)
-    .expect_status("completed")
 )
 
 peer = mock_agent("clarifier", question="Deliver by when?")
-async with peer.client() as client:
+async with peer.client() as client:                    # one connection, several turns
     task = await client.send_message("Quote 2 pallets", contract=contract)
-    task = await client.reply(task.task.id, "Friday", context_id=task.task.context_id)
+    task = await client.reply(task, "Friday")
 ```
 
 ## Why this exists
