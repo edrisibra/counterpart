@@ -6,8 +6,8 @@ core delivering value on its own (the hedge against thin A2A adoption).
 
 from pydantic import BaseModel
 
-from a2a_sandbox.core import Complete, Contract, Drop, NeedInput, Progress, Turn, run_behaviour
-from a2a_sandbox.personas import BUILTIN_PERSONAS, available, get_persona
+from counterpart.core import Complete, Contract, Drop, NeedInput, Progress, Turn, run_behaviour
+from counterpart.personas import BUILTIN_PERSONAS, available, get_persona
 
 
 class Quote(BaseModel):

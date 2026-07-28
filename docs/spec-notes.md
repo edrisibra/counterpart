@@ -1,7 +1,7 @@
-# A2A spec notes — spec v1.0 → a2a-sandbox mapping
+# A2A spec notes — spec v1.0 → counterpart mapping
 
 These notes make the mapping from the A2A specification to this codebase auditable. Every
-protocol fact in `a2a_sandbox/adapters/a2a/` should be traceable to a section here, and every
+protocol fact in `counterpart/adapters/a2a/` should be traceable to a section here, and every
 section here cites the spec.
 
 **Read live on 2026-07-21 from the official sources:**
@@ -42,7 +42,7 @@ describes v0.2/v0.3. What changed (§Appendix A, `whats-new-v1.md`):
 | `MessageSendParams` / `configuration.blocking` / `configuration.pushNotificationConfig` | `SendMessageRequest` / `configuration.returnImmediately` / `configuration.taskPushNotificationConfig` (§3.2.1–3.2.2, Appendix A rename table) |
 | JSON Schema `specification/json/a2a.json` committed in repo | proto is normative; JSON schema is a generated non-normative build artifact published on the docs site only (§1.4) |
 
-a2a-sandbox v0 targets **spec v1.0 only**. Parsing legacy 0.3 payloads is out of scope
+counterpart v0 targets **spec v1.0 only**. Parsing legacy 0.3 payloads is out of scope
 (roadmap note).
 
 ## 1. Serialization rules (§5.5, §5.6, §5.7)
@@ -67,7 +67,7 @@ a2a-sandbox v0 targets **spec v1.0 only**. Parsing legacy 0.3 payloads is out of
 - **metadata** fields are `google.protobuf.Struct` → arbitrary JSON object
   (`dict[str, Any]`); `Part.data` is `google.protobuf.Value` → any JSON value.
 
-## 2. Core data model (§4) → `a2a_sandbox/adapters/a2a/types.py`
+## 2. Core data model (§4) → `counterpart/adapters/a2a/types.py`
 
 | Model class | Proto message | Spec § | Required fields (REQUIRED in proto) |
 |---|---|---|---|
@@ -137,7 +137,7 @@ exactly `https://{server_domain}/.well-known/agent-card.json` and MUST return an
 
 Complete `TaskState` enum (exact wire strings, §4.1.3 / proto):
 
-| Wire value | a2a-sandbox alias | Class |
+| Wire value | counterpart alias | Class |
 |---|---|---|
 | `TASK_STATE_UNSPECIFIED` | `unspecified` | default/unknown (never emitted by our mocks) |
 | `TASK_STATE_SUBMITTED` | `submitted` | active |
@@ -151,7 +151,7 @@ Complete `TaskState` enum (exact wire strings, §4.1.3 / proto):
 
 Terminal = `COMPLETED`, `FAILED`, `CANCELED`, `REJECTED`; interrupted = `INPUT_REQUIRED`,
 `AUTH_REQUIRED` (§3.1.1/§3.1.2/§3.1.6/§3.2.2 and proto doc comments). The aliases are an
-a2a-sandbox convenience (they happen to match the 0.3 wire values, which is what most humans
+counterpart convenience (they happen to match the 0.3 wire values, which is what most humans
 type); they never appear on the wire → decision [D2](#d2).
 
 Normative lifecycle rules we implement:
@@ -186,7 +186,7 @@ Normative lifecycle rules we implement:
 
 v1.0 defines three bindings — JSON-RPC (§9), gRPC (§10), HTTP+JSON/REST (§11) — and **none
 is mandatory**: agents MUST declare supported interfaces in the card; clients MUST select
-the first supported entry (§5.2, §8.3.2). **a2a-sandbox v0 implements the JSON-RPC binding
+the first supported entry (§5.2, §8.3.2). **counterpart v0 implements the JSON-RPC binding
 only** (decision [D1](#d1); REST/gRPC → roadmap).
 
 JSON-RPC binding (§9.1): JSON-RPC 2.0 over HTTP(S), `Content-Type: application/json`,
@@ -226,7 +226,7 @@ agents MUST interpret an empty/absent value as **0.3** and MUST return
   `PushNotificationNotSupportedError`.
 - The spec never constrains SSE `event:`/`id:`/`retry:` fields — we emit only `data:` lines.
 
-## 5. Errors (§3.3.2, §5.4, §9.5) → `a2a_sandbox/adapters/a2a/constants.py`
+## 5. Errors (§3.3.2, §5.4, §9.5) → `counterpart/adapters/a2a/constants.py`
 
 Standard JSON-RPC codes (names and default messages are spec-normative only for these five):
 

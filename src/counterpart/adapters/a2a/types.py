@@ -146,7 +146,7 @@ class TaskState(StrEnum):
 
     @property
     def alias(self) -> str:
-        """Human-friendly a2a_sandbox alias, e.g. ``"input-required"`` (D2, never on wire)."""
+        """Human-friendly counterpart alias, e.g. ``"input-required"`` (D2, never on wire)."""
         return self.value.removeprefix(_TASK_STATE_PREFIX).lower().replace("_", "-")
 
     @property
@@ -287,7 +287,7 @@ class Task(A2AModel):
     """proto ``Task`` (section 4.1.1). ``id`` is always server-generated (section 3.4.2).
 
     ``contextId`` is proto-optional, but servers must include a generated one in
-    responses (section 3.4.1); a2a_sandbox's server always populates it (D7).
+    responses (section 3.4.1); counterpart's server always populates it (D7).
     """
 
     id: str
@@ -496,7 +496,7 @@ class ListTaskPushNotificationConfigsResponse(A2AModel):
 
 class DeleteTaskPushNotificationConfigRequest(A2AModel):
     """proto message of the same name (section 3.1.10). Deletion MUST be idempotent;
-    the JSON-RPC result is unspecified — a2a_sandbox emits ``result: null``."""
+    the JSON-RPC result is unspecified — counterpart emits ``result: null``."""
 
     task_id: str
     id: str

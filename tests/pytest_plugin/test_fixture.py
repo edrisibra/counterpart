@@ -2,8 +2,8 @@
 
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract
-from a2a_sandbox.pytest_plugin import MockAgentFactory
+from counterpart import Contract
+from counterpart.pytest_plugin import MockAgentFactory
 
 
 class Quote(BaseModel):

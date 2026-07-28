@@ -15,7 +15,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from a2a_sandbox.adapters.a2a.constants import (
+from counterpart.adapters.a2a.constants import (
     A2A_VERSION_HEADER,
     MEDIA_TYPE_JSON,
     PROTOCOL_VERSION,
@@ -23,7 +23,7 @@ from a2a_sandbox.adapters.a2a.constants import (
     A2AErrorCode,
     A2AMethod,
 )
-from a2a_sandbox.adapters.a2a.types import AgentCard, JSONRPCRequest, Message, Part, Role
+from counterpart.adapters.a2a.types import AgentCard, JSONRPCRequest, Message, Part, Role
 
 
 class Status(StrEnum):

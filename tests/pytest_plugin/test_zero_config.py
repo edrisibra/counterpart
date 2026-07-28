@@ -15,7 +15,7 @@ pytest_plugins = ["pytester"]
 
 QUICKSTART = """
 from pydantic import BaseModel
-from a2a_sandbox import Contract
+from counterpart import Contract
 
 
 class Quote(BaseModel):

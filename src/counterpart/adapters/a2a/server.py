@@ -9,7 +9,7 @@ and streams status/artifact events over SSE.
 v0 implements: ``SendMessage`` (blocking + returnImmediately), ``SendStreamingMessage``
 (SSE), ``GetTask``, ``CancelTask``. ``SubscribeToTask`` and the push-config methods return
 ``UnsupportedOperationError`` for now (roadmap). All wire shapes come from
-``a2a_sandbox.adapters.a2a.types``, verified against the normative proto.
+``counterpart.adapters.a2a.types``, verified against the normative proto.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from a2a_sandbox.adapters.a2a.constants import (
+from counterpart.adapters.a2a.constants import (
     A2A_VERSION_HEADER,
     MEDIA_TYPE_JSON,
     MEDIA_TYPE_SSE,
@@ -35,7 +35,7 @@ from a2a_sandbox.adapters.a2a.constants import (
     A2AErrorCode,
     A2AMethod,
 )
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart.adapters.a2a.types import (
     AgentCard,
     Artifact,
     JSONRPCError,
@@ -52,7 +52,7 @@ from a2a_sandbox.adapters.a2a.types import (
     TaskStatus,
     TaskStatusUpdateEvent,
 )
-from a2a_sandbox.core.behaviour import (
+from counterpart.core.behaviour import (
     Behaviour,
     Complete,
     Deliver,
@@ -66,7 +66,7 @@ from a2a_sandbox.core.behaviour import (
     Turn,
     Wait,
 )
-from a2a_sandbox.core.lifecycle import Lifecycle, LifecycleSpec
+from counterpart.core.lifecycle import Lifecycle, LifecycleSpec
 
 # The A2A task lifecycle expressed for the protocol-agnostic core (spec section 4.1.3).
 A2A_LIFECYCLE = LifecycleSpec(
@@ -375,7 +375,7 @@ class A2AServer:
         )
 
     def _artifact_event(self, record: _TaskRecord) -> StreamResponse:
-        from a2a_sandbox.adapters.a2a.types import TaskArtifactUpdateEvent
+        from counterpart.adapters.a2a.types import TaskArtifactUpdateEvent
 
         latest = (record.task.artifacts or [])[-1]
         return StreamResponse(
@@ -416,7 +416,7 @@ class A2AServer:
         return JSONResponse(body, media_type=MEDIA_TYPE_JSON)
 
     def _error(self, rpc_id: Any, code: A2AErrorCode, message: str | None = None) -> Response:
-        from a2a_sandbox.adapters.a2a.constants import ERROR_NAMES, STANDARD_ERROR_MESSAGES
+        from counterpart.adapters.a2a.constants import ERROR_NAMES, STANDARD_ERROR_MESSAGES
 
         text = message or STANDARD_ERROR_MESSAGES.get(code) or ERROR_NAMES[code]
         body = JSONRPCErrorResponse(

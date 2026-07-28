@@ -19,8 +19,8 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract, MockAgent
-from a2a_sandbox.core.behaviour import (
+from counterpart import Contract, MockAgent
+from counterpart.core.behaviour import (
     Complete,
     Directive,
     NeedInput,
@@ -28,7 +28,7 @@ from a2a_sandbox.core.behaviour import (
     SessionContext,
     Turn,
 )
-from a2a_sandbox.personas import PersonaFactory, register
+from counterpart.personas import PersonaFactory, register
 
 TODAY = datetime.now(UTC).date()
 SERVICE_DATE = (TODAY + timedelta(days=4)).isoformat()
@@ -525,7 +525,7 @@ async def test_phi_over_collection_is_visible_to_the_caller() -> None:
 
 
 async def test_non_idempotent_retry_yields_two_authorization_numbers() -> None:
-    """A retry opens a second case. Note: a2a-sandbox gives each task its own behaviour
+    """A retry opens a second case. Note: counterpart gives each task its own behaviour
     instance, so modelling cross-task memory requires explicit class-level state."""
 
     class DuplicateOnRetry:

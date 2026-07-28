@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from a2a_sandbox.core import Complete, Directive, Progress, SessionContext, Turn, run_behaviour
+from counterpart.core import Complete, Directive, Progress, SessionContext, Turn, run_behaviour
 
 
 class _Echo:

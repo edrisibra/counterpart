@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from a2a_sandbox.adapters.a2a import (
+from counterpart.adapters.a2a import (
     AgentCard,
     Artifact,
     JSONRPCError,

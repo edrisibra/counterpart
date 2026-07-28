@@ -4,10 +4,10 @@ import json
 
 from typer.testing import CliRunner
 
-from a2a_sandbox import MockAgent, wrap
-from a2a_sandbox.adapters.a2a.mockagent import serve_asgi
-from a2a_sandbox.cli.checks import Status, run_attacks, run_checks
-from a2a_sandbox.cli.main import app
+from counterpart import MockAgent, wrap
+from counterpart.adapters.a2a.mockagent import serve_asgi
+from counterpart.cli.checks import Status, run_attacks, run_checks
+from counterpart.cli.main import app
 
 runner = CliRunner()
 

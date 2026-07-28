@@ -2,7 +2,7 @@
 
 import re
 
-from a2a_sandbox.adapters.a2a import (
+from counterpart.adapters.a2a import (
     ERROR_HTTP_STATUS,
     ERROR_NAMES,
     STANDARD_ERROR_MESSAGES,

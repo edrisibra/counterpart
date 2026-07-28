@@ -11,8 +11,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract, MockAgent
-from a2a_sandbox.core.behaviour import (
+from counterpart import Contract, MockAgent
+from counterpart.core.behaviour import (
     Complete,
     Directive,
     NeedInput,
@@ -20,7 +20,7 @@ from a2a_sandbox.core.behaviour import (
     SessionContext,
     Turn,
 )
-from a2a_sandbox.personas import PersonaFactory, register
+from counterpart.personas import PersonaFactory, register
 
 FUTURE = (datetime.now(UTC) + timedelta(days=7)).date().isoformat()
 PAST = (datetime.now(UTC) - timedelta(days=30)).date().isoformat()

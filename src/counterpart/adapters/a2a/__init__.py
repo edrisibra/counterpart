@@ -4,7 +4,7 @@ JSON-RPC transport, and SSE streaming land in milestone 3.
 Targets A2A spec v1.0 (verified against release tag v1.0.1); see docs/spec-notes.md.
 """
 
-from a2a_sandbox.adapters.a2a.constants import (
+from counterpart.adapters.a2a.constants import (
     A2A_EXTENSIONS_HEADER,
     A2A_VERSION_HEADER,
     BINDING_GRPC,
@@ -26,7 +26,7 @@ from a2a_sandbox.adapters.a2a.constants import (
     A2AMethod,
     error_reason,
 )
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart.adapters.a2a.types import (
     AgentCapabilities,
     AgentCard,
     AgentCardSignature,

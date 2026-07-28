@@ -1,4 +1,4 @@
-"""Enforce the one hard architecture rule: a2a_sandbox.core imports no protocol code.
+"""Enforce the one hard architecture rule: counterpart.core imports no protocol code.
 
 If A2A adoption stalls or a competing protocol wins, the engine must survive with a new
 adapter. This test fails the moment someone imports an adapter (or a protocol dependency)
@@ -9,9 +9,9 @@ import ast
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "src"
-CORE_DIR = SRC / "a2a_sandbox" / "core"
+CORE_DIR = SRC / "counterpart" / "core"
 
-# core/ may import its own submodules (a2a_sandbox.core.*) and third-party libs like
+# core/ may import its own submodules (counterpart.core.*) and third-party libs like
 # pydantic, but never a sibling first-party subpackage (adapters/, personas/, ...) nor an
 # external protocol/transport dependency.
 FORBIDDEN_TOP_LEVEL = frozenset(
@@ -32,8 +32,8 @@ def _imported_modules(source: str) -> set[str]:
 
 def _classify(module: str) -> str | None:
     """Return a reason string if ``module`` is a forbidden import inside core/, else None."""
-    if module.startswith("a2a_sandbox."):
-        if not module.startswith("a2a_sandbox.core"):
+    if module.startswith("counterpart."):
+        if not module.startswith("counterpart.core"):
             return f"first-party non-core package {module!r}"
         return None
     top = module.split(".")[0]

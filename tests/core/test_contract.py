@@ -6,7 +6,7 @@ payload with no real price, and a single assertion catches it.
 
 from pydantic import BaseModel
 
-from a2a_sandbox.core import Contract, FailureCategory
+from counterpart.core import Contract, FailureCategory
 
 
 class Quote(BaseModel):

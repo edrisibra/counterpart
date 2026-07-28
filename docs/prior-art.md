@@ -1,4 +1,4 @@
-# Prior art — what exists, and what a2a-sandbox deliberately does differently
+# Prior art — what exists, and what counterpart deliberately does differently
 
 Researched live on 2026-07-21 and 2026-07-27 (GitHub, PyPI, npm, project docs).
 
@@ -6,7 +6,7 @@ Researched live on 2026-07-21 and 2026-07-27 (GitHub, PyPI, npm, project docs).
 
 An earlier draft claimed "**nothing** provides behavioral simulated counterparty agents."
 Follow-up research narrowed that: it is **not** true in general. What is true is more
-specific, and it's the niche a2a-sandbox owns:
+specific, and it's the niche counterpart owns:
 
 - **The role.** Existing A2A mocks (aimock, mokksy) play the counterparty *responder* role
   but ship **zero adversarial behavior** — they're honest, mostly stateless stubs.
@@ -18,10 +18,10 @@ specific, and it's the niche a2a-sandbox owns:
 - **The open niche = responder-role × adversarial × stateful.** No tool combines all three:
   a stateful, persona-driven counterparty that your agent calls, which can cooperate, stall,
   break mid-task, or lie in its responses — paired with contract assertions that catch a peer
-  reporting success while returning garbage. That is a2a-sandbox.
+  reporting success while returning garbage. That is counterpart.
 
 Positioning follows from this (decision, 2026-07-27): we describe `agent-security-harness` as
-**complementary** — it hardens your A2A *ingress*; a2a-sandbox hardens your *egress / delegation
+**complementary** — it hardens your A2A *ingress*; counterpart hardens your *egress / delegation
 trust* — and we do **not** market ourselves as "the only adversarial A2A tool." We also drop
 the "you can't test A2A without infrastructure" hook, whose own cited source argues the
 opposite (untestability is an avoidable architecture smell); we instead promise to *provide the
@@ -47,7 +47,7 @@ routes).
   which requires a raw wire layer the SDK cannot express. We also ship the testing ergonomics
   it has none of: personas, fault injection, contract assertions over the returned result,
   pytest fixtures, ephemeral server lifecycle.
-- **Deliberate choice**: a2a-sandbox does **not** depend on a2a-sdk. Our own Pydantic models
+- **Deliberate choice**: counterpart does **not** depend on a2a-sdk. Our own Pydantic models
   (verified against the same normative proto — see `docs/spec-notes.md`) keep the dependency
   surface small and let us emit deliberately-wrong payloads. We may add an optional
   interop test against the SDK later (roadmap).
@@ -89,8 +89,8 @@ across all three bindings, with compatibility.json/HTML reports. Actively mainta
 PyPI (clone-and-run).
 
 - **They**: the definitive *server-side* conformance suite. We must NOT re-implement it.
-- **We / how `a2a-sandbox check` differs** (matters for milestone 5):
-  1. **Scope**: `a2a-sandbox check` is a fast, pip-installed smoke report (scored table +
+- **We / how `counterpart check` differs** (matters for milestone 5):
+  1. **Scope**: `counterpart check` is a fast, pip-installed smoke report (scored table +
      JSON, spec citations) — a developer loop tool, not a certification suite. Its docs will
      point to the TCK for the full matrix.
   2. **Direction**: the TCK has no mode that judges a *client's* outbound traffic. Our mock
@@ -98,7 +98,7 @@ PyPI (clone-and-run).
      the inverse feature, which nothing else offers.
   3. We copy their good ideas: spec pinning with checksums (already done in `tests/data/`),
      RFC 2119 leveling, machine-readable report. And we can use the TCK itself as a CI
-     oracle against our own `cooperative` persona server — the TCK becomes a2a-sandbox's
+     oracle against our own `cooperative` persona server — the TCK becomes counterpart's
      fidelity gate rather than a competitor.
 
 ## Non-official / adjacent tools
@@ -117,7 +117,7 @@ undocumented-method enumeration, **cross-context data leakage** (P0).
 - **We**: the *counterparty responder* your agent **delegates to**. It never plays the
   remote-agent role or speaks adversarial *responses* back to a delegating client; it has no
   personas, no stateful multi-turn behavior, and no contract verification of returned work.
-- **Relationship**: complementary, not competing — it hardens ingress, a2a-sandbox hardens
+- **Relationship**: complementary, not competing — it hardens ingress, counterpart hardens
   egress / delegation trust. We cite it that way and do not claim to be the only adversarial
   A2A tool. (See "The gap, stated precisely" above.)
 
@@ -157,13 +157,13 @@ LocalStack (simulated AWS), WireMock (programmable HTTP stubs), respx / pytest-h
 (in-process httpx mocking), vcrpy (record/replay cassettes). All fake *services with
 deterministic request/response semantics*. None model an interactive, stateful,
 conversational counterparty that can cooperate, stall, break mid-task, or attack you —
-that's the specific thing a2a-sandbox adds, for the A2A protocol.
+that's the specific thing counterpart adds, for the A2A protocol.
 
 ## Scope guardrails derived from this research
 
-1. Do not re-implement the TCK's server-conformance matrix; `a2a-sandbox check` stays a
+1. Do not re-implement the TCK's server-conformance matrix; `counterpart check` stays a
    scored smoke report + client-side judging, and links to the TCK.
 2. Do not mock LLM APIs, MCP, or vector DBs — aimock owns that ground.
 3. Do not depend on a2a-sdk or fasta2a; verify our own models against the pinned proto.
-4. PyPI naming: `a2a-sandbox` / `a2a_sandbox` are both **available** on PyPI (checked
+4. PyPI naming: `counterpart` / `counterpart` are both **available** on PyPI (checked
    2026-07-27), as is `agentmock`; `a2a-inspector` is taken by an unrelated placeholder wheel.

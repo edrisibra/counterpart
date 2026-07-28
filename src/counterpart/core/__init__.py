@@ -1,11 +1,11 @@
 """Protocol-agnostic core: task lifecycle, result-verifying contracts, personas/behaviour.
 
 Hard rule: nothing in this package may import from, or assume the existence of, any concrete
-protocol (A2A or otherwise). Protocol bindings live in ``a2a_sandbox.adapters``. A test
+protocol (A2A or otherwise). Protocol bindings live in ``counterpart.adapters``. A test
 (``tests/core/test_core_is_protocol_free.py``) enforces this.
 """
 
-from a2a_sandbox.core.behaviour import (
+from counterpart.core.behaviour import (
     Behaviour,
     Complete,
     Deliver,
@@ -20,14 +20,14 @@ from a2a_sandbox.core.behaviour import (
     Wait,
     run_behaviour,
 )
-from a2a_sandbox.core.contract import (
+from counterpart.core.contract import (
     CheckResult,
     Contract,
     ContractReport,
     FailureCategory,
     Predicate,
 )
-from a2a_sandbox.core.lifecycle import (
+from counterpart.core.lifecycle import (
     IllegalTransition,
     Lifecycle,
     LifecycleSpec,

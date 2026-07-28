@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from a2a_sandbox.core.behaviour import Behaviour
-from a2a_sandbox.personas.library import (
+from counterpart.core.behaviour import Behaviour
+from counterpart.personas.library import (
     Clarifier,
     Cooperative,
     FalseSuccess,
@@ -52,7 +52,7 @@ _BUILTINS = (Cooperative, Clarifier, FalseSuccess, ResourceAbuse, Flaky, OverSha
 for _persona in _BUILTINS:
     register(_persona.name, _persona)
 
-#: Names of the personas that ship with a2a-sandbox (``available()`` also includes custom ones).
+#: Names of the personas that ship with counterpart (``available()`` also includes custom ones).
 BUILTIN_PERSONAS: tuple[str, ...] = tuple(sorted(p.name for p in _BUILTINS))
 
 __all__ = [

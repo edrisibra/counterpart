@@ -69,8 +69,8 @@ from datetime import UTC, date, datetime, timedelta
 
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract, MockAgent
-from a2a_sandbox.core.behaviour import (
+from counterpart import Contract, MockAgent
+from counterpart.core.behaviour import (
     Complete,
     Directive,
     NeedInput,
@@ -78,7 +78,7 @@ from a2a_sandbox.core.behaviour import (
     SessionContext,
     Turn,
 )
-from a2a_sandbox.personas import register
+from counterpart.personas import register
 
 TODAY = datetime.now(UTC).date()
 SERVICE_DATE = (TODAY + timedelta(days=4)).isoformat()
@@ -613,7 +613,7 @@ class PhiOverCollector:
 class DuplicateOnRetry:
     """Non-idempotent: a retry opens a second case with a different authorization number.
 
-    Uses CLASS-level state on purpose. a2a-sandbox gives every task its own behaviour instance
+    Uses CLASS-level state on purpose. counterpart gives every task its own behaviour instance
     (so concurrent sessions stay independent), which means per-instance state cannot observe a
     retry — cross-task memory has to be explicit, as here.
     """

@@ -2,10 +2,10 @@
 
     app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])
 
-Built on a2a-sandbox's own A2A server (no fasta2a/a2a-sdk dependency — decision D-wrap), so
+Built on counterpart's own A2A server (no fasta2a/a2a-sdk dependency — decision D-wrap), so
 it stays a thin, deterministic, test-oriented dev server rather than production plumbing.
 The callable receives the inbound message text (and, if it accepts a second argument, the
-structured data part) and returns the result payload; a2a-sandbox turns that into a
+structured data part) and returns the result payload; counterpart turns that into a
 completed A2A task with the result as an artifact. Sync or async callables both work.
 """
 
@@ -17,9 +17,9 @@ from typing import Any
 
 from starlette.applications import Starlette
 
-from a2a_sandbox.adapters.a2a.mockagent import default_card
-from a2a_sandbox.adapters.a2a.server import A2AServer
-from a2a_sandbox.core.behaviour import Complete, Directive, Fail, SessionContext, Turn
+from counterpart.adapters.a2a.mockagent import default_card
+from counterpart.adapters.a2a.server import A2AServer
+from counterpart.core.behaviour import Complete, Directive, Fail, SessionContext, Turn
 
 AgentCallable = Callable[..., Any] | Callable[..., Awaitable[Any]]
 
@@ -69,7 +69,7 @@ def wrap(
     """Return an ASGI app that serves ``fn`` as an A2A agent (Agent Card auto-generated).
 
     Run it with any ASGI server (``uvicorn.run(app, ...)``), or point an in-process
-    :class:`~a2a_sandbox.adapters.a2a.client.A2AClient` at it with ``A2AClient(app=app)``.
+    :class:`~counterpart.adapters.a2a.client.A2AClient` at it with ``A2AClient(app=app)``.
     """
     card = default_card(name, url="http://mock.local/", skills=skills)
     if description is not None:

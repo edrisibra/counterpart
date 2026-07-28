@@ -2,10 +2,10 @@
 
 Not published. Prerequisites before any of this goes out:
 
-1. Repo is **public** and `pip install a2a-sandbox` works (a Show HN pointing at a private repo
+1. Repo is **public** and `pip install counterpart` works (a Show HN pointing at a private repo
    gets flagged immediately).
 2. The **name question is settled** — confirm "A2A"/"Agent2Agent" trademark rules permit
-   `a2a-sandbox` as a package name, or rename first. Renaming after publishing is the one
+   `counterpart` as a package name, or rename first. Renaming after publishing is the one
    genuinely painful mistake available here.
 3. You have a free evening. You are expected to answer comments for several hours; a Show HN
    where the author vanishes does badly.
@@ -70,7 +70,7 @@ comment).
 > member IDs so a correctly-echoed ` w123456789 ` was rejected as the wrong patient. A checker
 > that flags valid answers gets switched off in week two, which is worse than having none.
 >
-> v0, MIT, API will change. It's pre-deployment testing — it doesn't monitor production and
+> v0, Apache-2.0, API will change. It's pre-deployment testing — it doesn't monitor production and
 > doesn't solve agent identity. If your agents are three functions in one process you don't
 > need it. Happy to be told the abstraction is wrong.
 

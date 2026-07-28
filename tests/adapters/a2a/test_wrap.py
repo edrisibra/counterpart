@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from a2a_sandbox import A2AClient, Contract, wrap
+from counterpart import A2AClient, Contract, wrap
 
 
 class Quote(BaseModel):

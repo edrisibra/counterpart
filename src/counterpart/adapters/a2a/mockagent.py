@@ -18,17 +18,17 @@ from typing import Any
 import uvicorn
 from starlette.applications import Starlette
 
-from a2a_sandbox.adapters.a2a.client import A2AClient, TaskResult
-from a2a_sandbox.adapters.a2a.constants import BINDING_JSONRPC, PROTOCOL_VERSION
-from a2a_sandbox.adapters.a2a.server import A2AServer, BehaviourFactory
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart.adapters.a2a.client import A2AClient, TaskResult
+from counterpart.adapters.a2a.constants import BINDING_JSONRPC, PROTOCOL_VERSION
+from counterpart.adapters.a2a.server import A2AServer, BehaviourFactory
+from counterpart.adapters.a2a.types import (
     AgentCapabilities,
     AgentCard,
     AgentInterface,
     AgentSkill,
 )
-from a2a_sandbox.core.contract import Contract
-from a2a_sandbox.personas import get_persona
+from counterpart.core.contract import Contract
+from counterpart.personas import get_persona
 
 
 @contextlib.contextmanager
@@ -66,7 +66,7 @@ def default_card(name: str, *, url: str, skills: list[str] | None = None) -> Age
     skill_ids = skills or ["echo"]
     return AgentCard(
         name=name,
-        description=f"a2a-sandbox mock counterparty ({name}).",
+        description=f"counterpart mock counterparty ({name}).",
         supported_interfaces=[
             AgentInterface(
                 url=url,

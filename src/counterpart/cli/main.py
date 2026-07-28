@@ -1,7 +1,7 @@
-"""``a2a-sandbox`` CLI: ``check`` (conformance smoke report) and ``attack`` (adversarial probes).
+"""``counterpart`` CLI: ``check`` (conformance smoke report) and ``attack`` (adversarial probes).
 
-    a2a-sandbox check  https://my-agent.example.com
-    a2a-sandbox attack https://my-agent.example.com
+    counterpart check  https://my-agent.example.com
+    counterpart attack https://my-agent.example.com
 
 Both print a rich table by default, or machine-readable JSON with ``--json`` (for CI).
 ``check`` is a fast dev-loop smoke report, not the full a2a-tck matrix — see docs.
@@ -16,7 +16,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from a2a_sandbox.cli.checks import (
+from counterpart.cli.checks import (
     AttackOutcome,
     CheckOutcome,
     Status,
@@ -25,7 +25,7 @@ from a2a_sandbox.cli.checks import (
 )
 
 app = typer.Typer(
-    name="a2a-sandbox",
+    name="counterpart",
     help="Test your A2A agent against simulated counterparties, and check/attack a live agent.",
     no_args_is_help=True,
     add_completion=False,
@@ -63,7 +63,7 @@ def check(
             )
         )
     else:
-        table = Table(title=f"a2a-sandbox check — {url}", show_lines=False)
+        table = Table(title=f"counterpart check — {url}", show_lines=False)
         table.add_column("Check", style="bold")
         table.add_column("Result")
         table.add_column("Spec §", style="cyan")
@@ -104,7 +104,7 @@ def attack(
             )
         )
     else:
-        table = Table(title=f"a2a-sandbox attack — {url}", show_lines=True)
+        table = Table(title=f"counterpart attack — {url}", show_lines=True)
         table.add_column("Probe", style="bold")
         table.add_column("Technique", style="cyan")
         table.add_column("Flag")

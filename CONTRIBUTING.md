@@ -1,4 +1,4 @@
-# Contributing to a2a-sandbox
+# Contributing to counterpart
 
 Thanks for looking. This is a young project (v0), so the most valuable contributions right now
 are **failure modes you have actually hit** — a real counterparty that lied about finishing, a
@@ -16,8 +16,8 @@ make the persona library worth anything; invented ones make it worse.
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/edrisibra/a2a-sandbox
-cd a2a-sandbox
+git clone https://github.com/edrisibra/counterpart
+cd counterpart
 uv sync
 uv run pytest
 ```
@@ -34,7 +34,7 @@ uv run pytest
 
 ## Project rules that are not negotiable
 
-1. **`src/a2a_sandbox/core/` contains no protocol code.** No A2A types, no imports from
+1. **`src/counterpart/core/` contains no protocol code.** No A2A types, no imports from
    `adapters/`, no HTTP/ASGI dependencies. A2A is one adapter; the engine has to survive a
    different protocol winning. `tests/core/test_core_is_protocol_free.py` enforces this and
    will fail your build.
@@ -56,8 +56,8 @@ uv run pytest
 A persona is a plain class with one method. No DSL, no registration ceremony beyond one call:
 
 ```python
-from a2a_sandbox.core import Complete, Progress
-from a2a_sandbox.personas import register
+from counterpart.core import Complete, Progress
+from counterpart.personas import register
 
 class HalfAnswer:
     """Reports success but omits the field the caller actually needs."""
@@ -81,9 +81,9 @@ git commit -s -m "your message"
 ```
 
 That appends a `Signed-off-by:` line, certifying you wrote the patch or have the right to
-submit it under the project's MIT licence.
+submit it under the project's Apache-2.0 licence.
 
 ## Licence
 
 By contributing you agree your contribution is licensed under the
-[MIT Licence](LICENSE), the same as the project.
+[Apache License 2.0](LICENSE), the same as the project.

@@ -5,9 +5,9 @@ Each test pins a specific defect the hunt found so it can't silently return.
 
 import pytest
 
-from a2a_sandbox import A2AClient, MockAgent, wrap
-from a2a_sandbox.adapters.a2a.constants import A2AErrorCode, A2AMethod
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart import A2AClient, MockAgent, wrap
+from counterpart.adapters.a2a.constants import A2AErrorCode, A2AMethod
+from counterpart.adapters.a2a.types import (
     JSONRPCRequest,
     Role,
     TaskState,
@@ -98,7 +98,7 @@ async def test_matching_context_id_on_followup_is_accepted() -> None:
 
 
 async def test_client_surfaces_peer_jsonrpc_error() -> None:
-    from a2a_sandbox.adapters.a2a.client import A2AProtocolError
+    from counterpart.adapters.a2a.client import A2AProtocolError
 
     mock = MockAgent("cooperative")
     async with mock.client() as client:
@@ -112,8 +112,8 @@ async def test_client_surfaces_peer_jsonrpc_error() -> None:
 
 def test_accumulate_artifact_merges_appended_chunks() -> None:
     """append=true extends the same artifact id; a plain update replaces/adds (spec 4.2.2)."""
-    from a2a_sandbox.adapters.a2a.client import _accumulate_artifact
-    from a2a_sandbox.adapters.a2a.types import Artifact, Part, TaskArtifactUpdateEvent
+    from counterpart.adapters.a2a.client import _accumulate_artifact
+    from counterpart.adapters.a2a.types import Artifact, Part, TaskArtifactUpdateEvent
 
     acc: dict[str, Artifact] = {}
 
@@ -175,7 +175,7 @@ def test_coerce_non_string_raises_valueerror() -> None:
 
 
 def test_false_success_default_result_is_per_instance() -> None:
-    from a2a_sandbox.personas import get_persona
+    from counterpart.personas import get_persona
 
     a = get_persona("false_success")
     b = get_persona("false_success")
@@ -209,7 +209,7 @@ def test_returns_none_raises_instead_of_silently_passing_everything() -> None:
     reports satisfied. `.returns(None)` used to do exactly that."""
     import pytest as _pytest
 
-    from a2a_sandbox import Contract
+    from counterpart import Contract
 
     with _pytest.raises(TypeError, match="disable structural validation"):
         Contract("x").returns(None)

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from a2a_sandbox.core.behaviour import (
+from counterpart.core.behaviour import (
     Complete,
     Directive,
     Drop,

@@ -1,4 +1,4 @@
-"""Dogfood a2a-sandbox on a REAL business problem: cross-company freight procurement.
+"""Dogfood counterpart on a REAL business problem: cross-company freight procurement.
 
 The business flow (the canonical case where A2A earns its keep — separate companies, so you
 genuinely can't just call a function):
@@ -14,7 +14,7 @@ a price as text, a missing currency, a unit error, an expired validity window. O
 books it and invoices the customer off a bad number. No crash, no error log.
 
 We run the SAME procurement twice: once naive (trust the peers) and once guarded
-(a2a-sandbox Contract on every quote), and compare business outcomes.
+(counterpart Contract on every quote), and compare business outcomes.
 """
 
 import asyncio
@@ -22,9 +22,9 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract, MockAgent
-from a2a_sandbox.core.behaviour import Complete, NeedInput, Progress
-from a2a_sandbox.personas import register
+from counterpart import Contract, MockAgent
+from counterpart.core.behaviour import Complete, NeedInput, Progress
+from counterpart.personas import register
 
 # --- what our business considers a valid carrier quote ----------------------
 
@@ -210,7 +210,7 @@ async def request_quote(persona: str, *, guard: bool):
 
 async def run_procurement(*, guard: bool):
     """The business workflow: broadcast, collect, pick cheapest valid, book."""
-    label = "GUARDED (a2a-sandbox contracts)" if guard else "NAIVE (trust the peers)"
+    label = "GUARDED (counterpart contracts)" if guard else "NAIVE (trust the peers)"
     print(f"\n--- procurement run: {label} ---")
     offers = []
     for name, _ in CARRIERS:
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     ok = asyncio.run(main())
     print(
         "\nVERDICT:",
-        "a2a-sandbox caught the business-damaging failures ✅"
+        "counterpart caught the business-damaging failures ✅"
         if ok
         else "did not demonstrate the catch ❌",
     )

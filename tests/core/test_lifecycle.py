@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from a2a_sandbox.core import IllegalTransition, Lifecycle, LifecycleSpec, TimelineEntry
+from counterpart.core import IllegalTransition, Lifecycle, LifecycleSpec, TimelineEntry
 
 
 def make_spec() -> LifecycleSpec:

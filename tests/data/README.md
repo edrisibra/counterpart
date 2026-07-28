@@ -1,7 +1,7 @@
 # Vendored A2A spec artifacts
 
 Pinned copies of the official A2A protocol machine-readable definitions, used by the test
-suite to verify `a2a_sandbox.adapters.a2a.types` against the spec instead of against our own
+suite to verify `counterpart.adapters.a2a.types` against the spec instead of against our own
 assumptions. Do not edit these files.
 
 | File | What | Source (pinned) | SHA-1 |

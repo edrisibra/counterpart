@@ -113,7 +113,7 @@ agent I delegated to said it was done — is what it gave me actually usable?*
 
 ### What I built
 
-[a2a-sandbox](https://github.com/edrisibra/a2a-sandbox) does two things.
+[counterpart](https://github.com/edrisibra/counterpart) does two things.
 
 It gives you counterparty agents that **misbehave on purpose**, so you can test against a peer
 that lies about finishing:

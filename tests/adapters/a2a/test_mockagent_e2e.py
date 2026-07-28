@@ -8,9 +8,9 @@ protocol, not just in-process directives.
 import pytest
 from pydantic import BaseModel
 
-from a2a_sandbox import Contract, MockAgent
-from a2a_sandbox.adapters.a2a.constants import A2AMethod
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart import Contract, MockAgent
+from counterpart.adapters.a2a.constants import A2AMethod
+from counterpart.adapters.a2a.types import (
     GetTaskRequest,
     JSONRPCRequest,
     JSONRPCSuccessResponse,

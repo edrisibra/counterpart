@@ -3,7 +3,7 @@
 Talks to any A2A v1.0 JSON-RPC agent — a real one over the network (``base_url``) or an
 in-process one over ASGI (``app``, no socket, for fast/deterministic tests). Returns a
 :class:`TaskResult` that carries the peer's self-reported status next to the extracted
-result, and can verify both against a :class:`~a2a_sandbox.core.contract.Contract`.
+result, and can verify both against a :class:`~counterpart.core.contract.Contract`.
 
 v0 routes JSON-RPC to ``{base}/`` and fetches the card from the well-known path; honouring
 the card's declared interface URL for routing is the conformance checker's job (roadmap).
@@ -18,14 +18,14 @@ from typing import Any
 
 import httpx
 
-from a2a_sandbox.adapters.a2a.constants import (
+from counterpart.adapters.a2a.constants import (
     A2A_VERSION_HEADER,
     MEDIA_TYPE_JSON,
     PROTOCOL_VERSION,
     WELL_KNOWN_AGENT_CARD_PATH,
     A2AMethod,
 )
-from a2a_sandbox.adapters.a2a.types import (
+from counterpart.adapters.a2a.types import (
     AgentCard,
     Artifact,
     JSONRPCRequest,
@@ -39,7 +39,7 @@ from a2a_sandbox.adapters.a2a.types import (
     Task,
     TaskState,
 )
-from a2a_sandbox.core.contract import Contract, ContractReport
+from counterpart.core.contract import Contract, ContractReport
 
 
 def _extract_result(task: Task) -> Any:

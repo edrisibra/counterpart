@@ -1,6 +1,6 @@
 """pytest plugin: the ``mock_agent`` fixture, registered automatically on install.
 
-Installing a2a-sandbox is the whole setup. No conftest.py, no ini options — write a test::
+Installing counterpart is the whole setup. No conftest.py, no ini options — write a test::
 
     async def test_survives_a_lying_peer(mock_agent):
         peer = mock_agent(persona="false_success")
@@ -24,7 +24,7 @@ from typing import Any, Protocol
 
 import pytest
 
-from a2a_sandbox.adapters.a2a.mockagent import MockAgent
+from counterpart.adapters.a2a.mockagent import MockAgent
 
 
 def pytest_configure(config: pytest.Config) -> None:

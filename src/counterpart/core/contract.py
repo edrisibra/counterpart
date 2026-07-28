@@ -1,6 +1,6 @@
 """Contract assertions — verify a delegated *result*, not just the protocol.
 
-This is a2a-sandbox's centerpiece and it is deliberately protocol-agnostic: a ``Contract``
+This is counterpart's centerpiece and it is deliberately protocol-agnostic: a ``Contract``
 verifies an arbitrary result payload (a dict, a value, whatever a protocol adapter hands
 it) against an expected structural shape plus predicates, and records the counterparty's
 self-reported status. The pairing of "claimed success" with "checks failed" is what makes

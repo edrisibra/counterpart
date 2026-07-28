@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-a2a-sandbox is at v0. Only the latest release receives fixes; there are no maintained
+counterpart is at v0. Only the latest release receives fixes; there are no maintained
 branches for older versions yet.
 
 ## Reporting a vulnerability

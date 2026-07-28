@@ -1,11 +1,11 @@
-# a2a-sandbox
+# counterpart
 
 **Test your A2A agent against simulated counterparties — cooperative, broken, or hostile —
 before you connect it to a real one.**
 
 Multi-agent systems don't usually fail by crashing. They fail when one agent reports
 `completed` and hands incomplete or corrupt work to the next one — no error, no stack trace,
-just wrong output three hops downstream. a2a-sandbox lets you reproduce that in a test: spin
+just wrong output three hops downstream. counterpart lets you reproduce that in a test: spin
 up a counterparty that misbehaves on purpose, point your agent at it, and assert on the
 **result**, not just the protocol status code.
 
@@ -16,7 +16,7 @@ up a counterparty that misbehaves on purpose, point your agent at it, and assert
 ## Quickstart
 
 ```bash
-pip install a2a-sandbox        # or: uv add a2a-sandbox
+pip install counterpart        # or: uv add counterpart
 ```
 
 That's the whole setup. No `conftest.py`, no ini options — installing the package registers
@@ -26,7 +26,7 @@ The scary one first — a peer that **lies about success**:
 
 ```python
 from pydantic import BaseModel
-from a2a_sandbox import Contract
+from counterpart import Contract
 
 
 class Quote(BaseModel):
@@ -77,8 +77,8 @@ Security-tier personas (`prompt_injection`, `capability_lying`) are on the
 Write your own by returning directives from a plain class — no DSL:
 
 ```python
-from a2a_sandbox.core import Complete, Progress
-from a2a_sandbox.personas import register
+from counterpart.core import Complete, Progress
+from counterpart.personas import register
 
 class HalfAnswer:
     def respond(self, turn, ctx):
@@ -90,7 +90,7 @@ register("half_answer", HalfAnswer)
 ## `wrap()` — expose your agent for testing in one line
 
 ```python
-from a2a_sandbox import wrap
+from counterpart import wrap
 
 app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])  # an ASGI A2A server
 # run it: uvicorn.run(app, ...)   — or drive it in-process with A2AClient(app=app)
@@ -119,15 +119,15 @@ date), not a miss. An over-strict contract gets switched off, which is worse tha
 ## `check` and `attack` a live agent
 
 ```bash
-a2a-sandbox check  https://my-agent.example.com
-a2a-sandbox attack https://my-agent.example.com --json   # for CI
+counterpart check  https://my-agent.example.com
+counterpart attack https://my-agent.example.com --json   # for CI
 ```
 
 `check` produces a scored conformance smoke report, every row citing the spec section it
 verifies:
 
 ```
-                   a2a-sandbox check — https://my-agent.example.com
+                   counterpart check — https://my-agent.example.com
 ┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Check                ┃ Result ┃ Spec §      ┃ Detail                       ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -151,14 +151,14 @@ the official [a2a-tck](https://github.com/a2aproject/a2a-tck).
 drops, or over-asks — as deterministic pytest fixtures; verify the *result* of delegated work
 against a contract, not just the protocol; smoke-check and probe a live A2A agent from CI.
 
-**Doesn't:** monitor production (that's tracing/observability — a2a-sandbox is shift-left,
+**Doesn't:** monitor production (that's tracing/observability — counterpart is shift-left,
 complementary); solve agent identity or trust infrastructure; issue certifications; mock LLM
 APIs, MCP, or vector DBs. It complements ingress-focused tools like `agent-security-harness`
 (which attacks *your* endpoint) by testing the other direction: the counterparty *your* agent
 delegates to.
 
 Honest scoping: A2A adoption is still early, and multi-agent architectures are often overkill.
-a2a-sandbox is for the real case where you have genuine cross-boundary agents — and the core
+counterpart is for the real case where you have genuine cross-boundary agents — and the core
 engine is protocol-agnostic, so the contract-verification and persona machinery isn't locked
 to A2A. See [docs/prior-art.md](docs/prior-art.md) for how this compares to what exists.
 
@@ -169,10 +169,10 @@ to A2A. See [docs/prior-art.md](docs/prior-art.md) for how this compares to what
 - [docs/prior-art.md](docs/prior-art.md) — what exists and the precise niche this fills.
 - [docs/roadmap.md](docs/roadmap.md) — what's intentionally out of v0.
 
-Architecture: a protocol-agnostic core (`a2a_sandbox.core` — lifecycle, contracts, personas)
-with A2A as one adapter (`a2a_sandbox.adapters.a2a`). A test enforces that the core never
+Architecture: a protocol-agnostic core (`counterpart.core` — lifecycle, contracts, personas)
+with A2A as one adapter (`counterpart.adapters.a2a`). A test enforces that the core never
 imports protocol code, so a second adapter is possible without touching the engine.
 
 ## License
 
-MIT.
+Apache-2.0. See [LICENSE](LICENSE).

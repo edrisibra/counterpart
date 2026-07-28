@@ -1,11 +1,11 @@
 [project]
-name = "a2a-sandbox"
+name = "counterpart"
 version = "0.0.1"
 description = "Test your A2A agent against simulated counterparties — cooperative, broken, or hostile — before you connect it to a real one."
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "a2a-sandbox contributors" }]
-license = "MIT"
+authors = [{ name = "counterpart contributors" }]
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 keywords = ["a2a", "agent2agent", "testing", "mock", "adversarial", "agents", "pytest"]
 classifiers = [
@@ -29,10 +29,10 @@ dependencies = [
 ]
 
 [project.scripts]
-a2a-sandbox = "a2a_sandbox.cli.main:app"
+counterpart = "counterpart.cli.main:app"
 
 [project.entry-points.pytest11]
-a2a_sandbox = "a2a_sandbox.pytest_plugin.plugin"
+counterpart = "counterpart.pytest_plugin.plugin"
 
 [dependency-groups]
 dev = [
@@ -49,7 +49,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/a2a_sandbox"]
+packages = ["src/counterpart"]
 
 [tool.ruff]
 line-length = 100
@@ -75,7 +75,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/a2a_sandbox/cli/**" = ["T20"]
+"src/counterpart/cli/**" = ["T20"]
 "tests/**" = ["T20"]
 "examples/**" = ["T20"]  # runnable demos print their results by design
 
@@ -83,7 +83,7 @@ select = [
 python_version = "3.11"
 strict = true
 mypy_path = "src"
-packages = ["a2a_sandbox"]
+packages = ["counterpart"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
