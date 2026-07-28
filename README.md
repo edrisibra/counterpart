@@ -141,10 +141,11 @@ counterpart check https://my-agent.example.com
 counterpart attack https://my-agent.example.com --json
 ```
 
-`check` gives you a scored report where every row cites the spec section it verifies. It is a
-quick smoke test for the development loop, not a certification suite. For the full conformance
-matrix use the official [a2a-tck](https://github.com/a2aproject/a2a-tck). `attack` sends
-adversarial probes and reports what came back.
+`check` gives you a scored report where every row cites the section of the spec it verifies. It is
+a quick smoke test for the development loop, not a thorough audit. When you want to know whether
+your server follows every rule in the protocol, use the official
+[a2a-tck](https://github.com/a2aproject/a2a-tck). `attack` sends deliberately malformed and hostile
+requests and reports what came back.
 
 ## Examples
 

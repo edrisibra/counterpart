@@ -54,8 +54,9 @@ First comment, post it right after submitting:
 > None of them were malformed. All of them were completed tasks with real numbers in them.
 >
 > I'm using A2A, where a task reaching completed means the other agent stopped working. It
-> doesn't mean the result is usable. Conformance testing can't see the gap, and shouldn't, because the
-> protocol behaved. Eval platforms simulate a user talking to your agent and score its reasoning,
+> doesn't mean the result is usable. The official test kit checks whether a server follows the
+> protocol's rules, so it can't see this gap and shouldn't, because the rules were followed. Eval
+> platforms simulate a user talking to your agent and score its reasoning,
 > which is a different problem. Mock servers replay canned responses, so they tell you whether
 > your code handles a response, not whether it should have accepted it.
 >
@@ -89,9 +90,10 @@ the real task lifecycle so there's something to test the contract against.
 and 0 of them answered a valid request. That's why the core has no protocol code in it, so the
 contract engine works on a plain HTTP response or a function return just as well.
 
-*Doesn't a2a-tck do this?* No, and be precise, because they do good work. a2a-tck tests your server
-for protocol conformance. This tests the agent you delegate to, at the content layer. Different
-direction, different layer. Link them.
+*Doesn't a2a-tck do this?* No, and be precise, because they do good work. a2a-tck checks whether
+your own server follows the protocol's rules. This checks the agent you delegate to, and it looks at
+the content of the answer rather than the shape of it. Different direction, different layer. Link
+them.
 
 *Why not DeepEval or LangSmith?* They simulate a user and score your agent's reasoning. They don't
 simulate a peer that returns a well formed useless artifact.

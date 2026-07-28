@@ -53,9 +53,10 @@ find out weeks later from an invoice that doesn't match anything you agreed to.
 
 I checked whether I was missing something obvious.
 
-Conformance testing didn't help, because the protocol behaved. That's the whole point of
-conformance and it did its job. There's an official test kit for A2A and it will happily tell you
-a server is compliant while that server hands you a quote from an unlicensed carrier.
+There's an official test kit for A2A that checks whether a server follows the protocol's rules.
+It didn't help, because the carrier's server followed them. That is the whole point of that kit and
+it did its job. It will happily tell you a server is correct while the server hands you a quote
+from a carrier that isn't allowed to drive.
 
 Evaluation platforms didn't help either. They simulate a user talking to your agent and score how
 well it reasons. Useful, different problem. Nobody was checking whether the thing the *other*
