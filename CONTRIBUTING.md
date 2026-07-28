@@ -1,14 +1,14 @@
 # Contributing to counterpart
 
 Thanks for looking. This is a young project (v0), so the most valuable contributions right now
-are **failure modes you have actually hit** — a real counterparty that lied about finishing, a
+are **failure modes you have actually hit**, a real counterparty that lied about finishing, a
 payload that broke your agent, a check you had to hand-roll.
 
 ## The fastest useful contribution
 
 Open an issue titled with the failure, not the fix. For example: *"payer returned an approval
 with no authorization number"*. Include the shape of the payload if you can share it (redact
-freely — the shape matters, the data does not). Failure modes drawn from real systems are what
+freely, the shape matters, the data does not). Failure modes drawn from real systems are what
 make the persona library worth anything; invented ones make it worse.
 
 ## Development setup
@@ -22,7 +22,7 @@ uv sync
 uv run pytest
 ```
 
-Before opening a PR, all four of these must pass — CI runs exactly the same commands on 3.11
+Before opening a PR, all four of these must pass, CI runs exactly the same commands on 3.11
 and 3.12:
 
 ```bash
@@ -44,11 +44,11 @@ uv run pytest
    [`tests/data/`](tests/data/README.md). Do not implement protocol behaviour from memory.
 3. **New failure modes must be labelled by how well they are attested.** The examples
    distinguish `very common` / `common` / `long-tail` / `unattested`. If you cannot point to a
-   source, mark it `unattested` — that is an honest and acceptable label. Inventing a dramatic
+   source, mark it `unattested`, that is an honest and acceptable label. Inventing a dramatic
    failure that no real system produces makes the library less useful, not more.
 4. **Every check needs a false-positive test.** A contract rule that rejects legitimate
    variation is worse than no rule, because users switch the whole thing off. Every rule that
-   catches a bad response needs a sibling test proving it accepts the good variations —
+   catches a bad response needs a sibling test proving it accepts the good variations, 
    including the awkward ones (different case, boundary dates, optional fields omitted).
 
 ## Adding a persona
@@ -68,7 +68,7 @@ class HalfAnswer:
 register("half_answer", HalfAnswer)
 ```
 
-Personas must be **deterministic** — same inputs, same directives out. No LLM calls, no
+Personas must be **deterministic**, same inputs, same directives out. No LLM calls, no
 randomness, no wall-clock dependence. Tests and CI runs have to be reproducible.
 
 ## Commit sign-off (DCO)

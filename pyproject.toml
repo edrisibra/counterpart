@@ -1,13 +1,27 @@
 [project]
 name = "counterpart"
 version = "0.1.0"
-description = "Test your A2A agent against simulated counterparties — cooperative, broken, or hostile — before you connect it to a real one."
+description = "Test your A2A agent against simulated counterparties that misbehave on purpose, then check what they actually returned."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "counterpart contributors" }]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["a2a", "agent2agent", "testing", "mock", "adversarial", "agents", "pytest"]
+keywords = [
+    "a2a",
+    "a2a-protocol",
+    "agent2agent",
+    "agent-testing",
+    "multi-agent",
+    "ai-agents",
+    "testing",
+    "mock",
+    "mocking",
+    "test-doubles",
+    "adversarial",
+    "pytest",
+    "pytest-plugin",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Pytest",

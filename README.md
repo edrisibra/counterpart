@@ -5,29 +5,16 @@
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Test your A2A agent against simulated counterparties — cooperative, broken, or hostile —
-before you connect it to a real one.**
+Test your agent against a peer that lies about finishing.
 
-Multi-agent systems don't usually fail by crashing. They fail when one agent reports
-`completed` and hands incomplete or corrupt work to the next one — no error, no stack trace,
-just wrong output three hops downstream. counterpart lets you reproduce that in a test: spin
-up a counterparty that misbehaves on purpose, point your agent at it, and assert on the
-**result**, not just the protocol status code.
-
-> **Status: v0, spec v1.0, API will change.** This is *pre-deployment testing* — it catches
-> classes of failure before you ship. It is **not** production monitoring, and it is not an
-> identity, trust, or runtime-governance layer. See [What it does and doesn't do](#what-it-does-and-doesnt-do).
-
-## Quickstart
+When your agent delegates work over [A2A](https://a2a-protocol.org/), a task reaching
+`completed` tells you the other agent stopped working. It does not tell you the work is any
+good. counterpart gives you counterparties that misbehave on purpose, and a way to check what
+they actually returned.
 
 ```bash
-pip install counterpart        # or: uv add counterpart
+pip install counterpart
 ```
-
-That's the whole setup. No `conftest.py`, no ini options — installing the package registers
-the pytest fixture and configures async tests for you.
-
-The scary one first — a peer that **lies about success**:
 
 ```python
 from pydantic import BaseModel
@@ -39,64 +26,57 @@ class Quote(BaseModel):
     currency: str
 
 
-async def test_my_agent_rejects_a_lying_peer(mock_agent):
-    # Declare what a *correct* delegated result must look like.
+async def test_agent_rejects_a_lying_peer(mock_agent):
     contract = (
         Contract("freight quote")
-        .returns(Quote)                                        # must parse into this shape
+        .returns(Quote)
         .require("price_is_number", lambda q: isinstance(q.price, (int, float)))
         .expect_status("completed")
     )
 
-    # A counterparty that reports "completed" but returns garbage.
     peer = mock_agent(persona="false_success")
     async with peer.client() as client:
-        task = await client.send_message("Quote 2 pallets LA->Dallas", contract=contract)
+        task = await client.send_message("Quote 2 pallets LA to Dallas", contract=contract)
 
-    assert task.status == "completed"     # the peer *claimed* success at the protocol level...
-    assert task.contract_violated         # ...but the returned work does not hold up — caught.
+    assert task.status == "completed"   # the peer said it was done
+    assert task.contract_violated       # what it sent back was useless
 ```
 
-`mock_agent` is a pytest fixture that ships with the package (no config). Wire that same
-`contract` into your agent's delegation path and it rejects the garbage instead of forwarding
-it downstream.
+Installing the package is the whole setup. The `mock_agent` fixture and the async
+configuration come with it, so there is no `conftest.py` to write.
 
-### One thing to know before you trust a contract
+## Why this exists
 
-By default `.returns(Model)` uses pydantic's normal lax mode, so a peer sending
-`{"price": "1420.00"}` — a **string** where your model says `float` — is coerced and
-**passes**. Predicates then see a real float, so `isinstance(x, float)` cannot save you.
+Multi-agent systems rarely fail by crashing. They fail when one agent finishes successfully and
+hands the next one something incomplete or wrong. Nothing raises, nothing gets logged, and you
+find out days later from a bad invoice or a denied claim. A study of multi-agent failures puts
+false success at 45 to 79 percent of them.
 
-That is standard pydantic behaviour, but it is a trap here: you may think you are getting type
-validation that you are not. If you need real type fidelity, ask for it:
+Conformance testing cannot see this, because the protocol behaved correctly. Evaluation
+platforms cannot either, because they simulate a user talking to your agent rather than a peer
+agent answering it. So the question nobody asks is the one that matters: the agent I delegated
+to says it finished, but can I use what it gave me?
 
-```python
-Contract("fare").returns(Fare, strict=True)   # a stringified number is now a failure
-```
+Here is a real example. HL7's prior authorization standard publishes a sample response for a
+request that is still pending review. Its top level `outcome` field says `complete`. The
+approved sample says `complete` too. The two differ only in an optional code buried four levels
+deep, while the field that misleads you is the required one. Any client reading the obvious
+status field will schedule surgery against an authorization that does not exist.
 
-Lax stays the default on purpose — plenty of real services legitimately send numbers as
-strings, and a contract that flags valid traffic gets switched off entirely, which is worse
-than no contract. Use `strict=True` when you own both ends or the wire format is pinned.
+## Personas
 
-## Persona gallery
+Every persona is deterministic, needs no LLM, and drives a real A2A task lifecycle.
 
-Every persona is deterministic (no LLM), toggle-configurable, and drives a real A2A task
-lifecycle. The **reliability tier** is where today's pain lives; the **security tier** is a
-smaller, forward-looking set for teams integrating untrusted or third-party agents.
+| Persona | What it does |
+| --- | --- |
+| `cooperative` | Works and completes with a well formed result |
+| `clarifier` | Asks one question, waits for your answer, then completes |
+| `false_success` | Reports `completed` and returns garbage |
+| `resource_abuse` | Stalls or streams forever without finishing |
+| `flaky` | Drops the connection, then recovers on retry |
+| `over_sharing` | Asks for more context than the task needs |
 
-| Persona | What it simulates | What a correct agent does |
-|---|---|---|
-| `cooperative` | Accepts, works, completes with a well-formed result | Uses the result |
-| `clarifier` | Flips to `input-required` once with a question, then completes | Answers, continues the task |
-| **`false_success`** ⭐ | Reports `completed` but returns incomplete/corrupt output | **Detects it via a contract; does not forward garbage** |
-| `resource_abuse` | Stalls or streams forever, never completing | Bounds its own time/spend and gives up |
-| `flaky` | Drops the connection mid-exchange, then recovers | Retries transient failures |
-| `over_sharing` | Asks for more context than the task needs | Refuses to leak unrelated context |
-
-Security-tier personas (`prompt_injection`, `capability_lying`) are on the
-[roadmap](docs/roadmap.md) as A2A's cross-boundary use grows.
-
-Write your own by returning directives from a plain class — no DSL:
+Writing your own takes one class and one call. There is no DSL.
 
 ```python
 from counterpart.core import Complete, Progress
@@ -104,104 +84,109 @@ from counterpart.personas import register
 
 class HalfAnswer:
     def respond(self, turn, ctx):
-        return [Progress("working"), Complete(result={"partial": True})]  # omits the real answer
+        return [Progress("working"), Complete(result={"partial": True})]
 
 register("half_answer", HalfAnswer)
 ```
 
-## `wrap()` — expose your agent for testing in one line
+## One thing to know about contracts
+
+By default `returns()` uses pydantic's normal mode, so a peer sending `{"price": "1420.00"}`
+gets coerced to a float and passes. Your predicates then see a real number, so an `isinstance`
+check will not save you. That is ordinary pydantic behaviour, but it surprises people here,
+because you might reasonably think you asked for type validation.
+
+If you want the stricter reading, ask for it:
+
+```python
+Contract("fare").returns(Fare, strict=True)
+```
+
+Lax is the default on purpose. Plenty of real services send numbers as strings, and a contract
+that rejects valid traffic gets switched off, which leaves you with nothing. Use `strict=True`
+when you control both ends or the format is pinned.
+
+## Exposing your own agent
+
+`wrap()` turns any callable, sync or async, into an A2A server you can point tests at.
 
 ```python
 from counterpart import wrap
 
-app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])  # an ASGI A2A server
-# run it: uvicorn.run(app, ...)   — or drive it in-process with A2AClient(app=app)
+app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])
 ```
 
-## Worked examples
+Run it with uvicorn, or skip the socket entirely with `A2AClient(app=app)`.
 
-Four runnable scenarios in [`examples/`](examples), each in a domain where A2A is genuinely
-warranted (the counterparty is operated by someone else) and each with a **different failure
-shape** — because the shape of the failure determines the shape of the check:
-
-| Example | Shape | What it shows |
-|---|---|---|
-| [`freight_procurement.py`](examples/freight_procurement.py) | N competing offers | A shipper agent collects carrier quotes and picks the cheapest valid one. The naive version books the "cheapest" carrier whose completed quote has `price: "call for rate"` and sends a non-numeric price to invoicing. |
-| [`satellite_downlink.py`](examples/satellite_downlink.py) | units, time systems, reference frames | A mission-ops agent schedules a downlink pass with a ground-station network. 12 plans that all report `completed` while describing a different physical reality — a window in GPS time (18 s of leap seconds early), elevation in radians masquerading as degrees, west-positive longitude, an inertial frame where an earth-fixed one is needed, a month-old TLE, a negative link margin. This is the Mars Climate Orbiter failure class. |
-| [`chaos_multihop.py`](examples/chaos_multihop.py) | 4 hops, real sockets, 20 concurrent users | Deliberately excessive: a delegation chain where each hop is a separate real HTTP server, auth passed through, corruption injected at the deepest hop. Corruption three hops away is still caught by the contract at hop 1. |
-| [`prior_authorization.py`](examples/prior_authorization.py) | pipeline with cross-field consistency | A clinic's agent clears a procedure with a payer's eligibility and utilization-management agents. 25 modelled payer failures — all reporting `completed` — sourced from the X12 278 / FHIR Da Vinci PAS specs and practitioner forums, with each case labelled by how well it is attested. |
+## Checking a live agent
 
 ```bash
-uv run python examples/prior_authorization.py
+counterpart check https://my-agent.example.com
+counterpart attack https://my-agent.example.com --json
 ```
 
-Every example measures two things, and the second matters more: every unusable answer is
-caught, **and** legitimate counterparty variation is *not* flagged.
+`check` gives you a scored report where every row cites the spec section it verifies. It is a
+quick smoke test for the development loop, not a certification suite. For the full conformance
+matrix use the official [a2a-tck](https://github.com/a2aproject/a2a-tck). `attack` sends
+adversarial probes and reports what came back.
 
-That second property is not theoretical. Researching the real X12 value sets for the prior-auth
-example found three bugs in those contracts, and **every one was a false positive** — rejecting
-a valid `A1` certification, rejecting a correctly-echoed member id, and mis-parsing a date so a
-`MM/DD/YYYY` value silently *passed*. A later end-to-end chaos run found a fourth. None was a
-missed catch; all four were the checker crying wolf. A contract that flags valid traffic gets
-switched off in week two, and then you have no contract at all.
+## Examples
 
-## `check` and `attack` a live agent
+There are four runnable scenarios in [examples](examples), each in a domain where the
+counterparty genuinely belongs to someone else, and each built around a different kind of
+failure.
 
-```bash
-counterpart check  https://my-agent.example.com
-counterpart attack https://my-agent.example.com --json   # for CI
-```
+[Freight procurement](examples/freight_procurement.py) collects quotes from competing carriers
+and picks the cheapest usable one. The naive version books the carrier whose completed quote
+lists `price` as `"call for rate"`, and sends that string to invoicing.
 
-`check` produces a scored conformance smoke report, every row citing the spec section it
-verifies:
+[Prior authorization](examples/prior_authorization.py) clears a procedure with a health
+insurer's eligibility and utilization management agents. It models 25 payer responses that all
+report `completed`, drawn from the X12 278 and FHIR Da Vinci specs and from billing forums.
+Each one is labelled by how well attested it is, and two are marked unattested because I could
+not find a real case for them.
 
-```
-                   counterpart check — https://my-agent.example.com
-┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Check                ┃ Result ┃ Spec §      ┃ Detail                       ┃
-┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ agent_card_reachable │ PASS   │ 8.2         │ HTTP 200                     │
-│ agent_card_valid     │ PASS   │ 4.4.1       │ name='...', 1 skill(s)       │
-│ send_message         │ PASS   │ 9.4.1       │ got task                     │
-│ streaming_honesty    │ PASS   │ 3.3.4       │ content-type: text/event-... │
-│ method_not_found     │ PASS   │ 9.5         │ got error code -32601        │
-│ task_not_found       │ PASS   │ 5.4         │ got error code -32001        │
-└──────────────────────┴────────┴─────────────┴──────────────────────────────┘
-Score: 9/9 checks passed — conformant
-Smoke report only; run a2a-tck for the full matrix.
-```
+[Satellite downlink](examples/satellite_downlink.py) schedules a pass with a ground station
+network. Twelve plans that all validate and all describe a different physical reality: a window
+handed over in GPS time, elevation in radians where the field says degrees, an inertial frame
+where you need an earth fixed one. This is the failure that cost NASA the Mars Climate Orbiter.
 
-It's a fast dev-loop tool, not a certification suite — for the full conformance matrix, use
-the official [a2a-tck](https://github.com/a2aproject/a2a-tck).
+[Chaos multihop](examples/chaos_multihop.py) is deliberately excessive. Four hops, each a
+separate HTTP server, auth passed along the chain, twenty concurrent users, and corruption
+injected at the deepest hop. Corruption three hops away still gets caught at the top.
 
-## What it does and doesn't do
+Every one of them measures two things, and the second matters more. Every unusable answer has
+to be caught, and every legitimate variation has to be left alone. That second half is not
+theoretical. Researching the real X12 value sets turned up three bugs in these contracts, and
+all three were false positives: rejecting a valid `A1` certification, rejecting a member id
+that came back correct but with different padding, and comparing dates as strings so that
+`07/31/2026` quietly passed a check it should have failed. A later chaos run found a fourth.
+None of them was a missed catch. A contract that flags good traffic gets deleted in week two.
 
-**Does:** reproduce cross-boundary failure modes — a peer that lies about success, stalls,
-drops, or over-asks — as deterministic pytest fixtures; verify the *result* of delegated work
-against a contract, not just the protocol; smoke-check and probe a live A2A agent from CI.
+## What it does not do
 
-**Doesn't:** monitor production (that's tracing/observability — counterpart is shift-left,
-complementary); solve agent identity or trust infrastructure; issue certifications; mock LLM
-APIs, MCP, or vector DBs. It complements ingress-focused tools like `agent-security-harness`
-(which attacks *your* endpoint) by testing the other direction: the counterparty *your* agent
-delegates to.
+This is testing you run before you deploy. It does not watch production, it does not solve
+agent identity or trust, and it will not bound how deep a peer delegates. A contract only sees
+the payload, not the clock, so if a correct answer arriving 400ms late is useless to you, that
+timeout is yours to enforce. [limits_probe.py](examples/limits_probe.py) shows exactly where
+the library goes quiet.
 
-Honest scoping: A2A adoption is still early, and multi-agent architectures are often overkill.
-counterpart is for the real case where you have genuine cross-boundary agents — and the core
-engine is protocol-agnostic, so the contract-verification and persona machinery isn't locked
-to A2A. See [docs/prior-art.md](docs/prior-art.md) for how this compares to what exists.
+If your agents are three functions in the same process, you do not need any of this.
 
 ## Design
 
-- [docs/spec-notes.md](docs/spec-notes.md) — how A2A v1.0 maps to the code (every claim cites
-  the spec; verified against the pinned proto in [tests/data](tests/data)).
-- [docs/prior-art.md](docs/prior-art.md) — what exists and the precise niche this fills.
-- [docs/roadmap.md](docs/roadmap.md) — what's intentionally out of v0.
+The core has no protocol code in it. A2A is one adapter, and a test enforces the boundary, so
+the contract engine also works on a plain HTTP response, an MCP style tool result, or a
+function return.
 
-Architecture: a protocol-agnostic core (`counterpart.core` — lifecycle, contracts, personas)
-with A2A as one adapter (`counterpart.adapters.a2a`). A test enforces that the core never
-imports protocol code, so a second adapter is possible without touching the engine.
+- [docs/spec-notes.md](docs/spec-notes.md) maps A2A v1.0 to the code, citing the spec
+  throughout. Wire types are checked against the vendored normative proto.
+- [docs/prior-art.md](docs/prior-art.md) covers what already exists and where this fits.
+- [docs/roadmap.md](docs/roadmap.md) lists what is out of scope and what is known to be missing.
 
-## License
+## Status
 
-Apache-2.0. See [LICENSE](LICENSE).
+Version 0.1.0, built against A2A spec v1.0. The API will change. Apache-2.0.
+
+If you have hit this failure in something you built, I would like to hear about it. Open an
+issue with the shape of the response that fooled you.

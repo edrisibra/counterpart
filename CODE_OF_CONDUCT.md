@@ -39,8 +39,8 @@ inappropriate, threatening, offensive, or harmful.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces — the issue tracker, pull requests,
-discussions — and also applies when an individual is officially representing the project in
+This Code of Conduct applies within all community spaces, the issue tracker, pull requests,
+discussions, and also applies when an individual is officially representing the project in
 public spaces.
 
 ## Reporting

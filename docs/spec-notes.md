@@ -1,4 +1,4 @@
-# A2A spec notes — spec v1.0 → counterpart mapping
+# A2A spec notes, spec v1.0 → counterpart mapping
 
 These notes make the mapping from the A2A specification to this codebase auditable. Every
 protocol fact in `counterpart/adapters/a2a/` should be traceable to a section here, and every
@@ -13,7 +13,7 @@ section here cites the spec.
 - Normative data model: `specification/a2a.proto` at that tag (§1.4 Normative Content: "the
   file `spec/a2a.proto` is the single authoritative normative definition of all protocol
   data objects and request/response messages"). Vendored at
-  [`tests/data/a2a_v1.0.1.proto`](../tests/data/a2a_v1.0.1.proto) with checksum — see
+  [`tests/data/a2a_v1.0.1.proto`](../tests/data/a2a_v1.0.1.proto) with checksum, see
   [`tests/data/README.md`](../tests/data/README.md).
 - Generated (non-normative) JSON Schema: <https://a2a-protocol.org/v1.0.1/spec/a2a.json>,
   vendored at [`tests/data/a2a_v1.0.1.schema.json`](../tests/data/a2a_v1.0.1.schema.json).
@@ -22,7 +22,7 @@ Section numbers (§) below refer to the v1.0.1 specification document.
 
 ---
 
-## 0. Version context — v1.0 is a breaking rewrite of v0.3
+## 0. Version context, v1.0 is a breaking rewrite of v0.3
 
 The current protocol version is **`"1.0"`** (Major.Minor only; patch numbers MUST NOT be
 used in negotiation, §3.6). GitHub releases: v1.0.1 (2026-05-28), v1.0.0 (2026-03-12),
@@ -32,7 +32,7 @@ describes v0.2/v0.3. What changed (§Appendix A, `whats-new-v1.md`):
 | v0.3 (gone) | v1.0 (what we implement) |
 |---|---|
 | JSON-RPC methods `message/send`, `message/stream`, `tasks/get`, `tasks/cancel`, `tasks/resubscribe`, `tasks/pushNotificationConfig/*`, `agent/getAuthenticatedExtendedCard` | PascalCase methods identical to gRPC: `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks` (new), `CancelTask`, `SubscribeToTask`, `CreateTaskPushNotificationConfig`, `GetTaskPushNotificationConfig`, `ListTaskPushNotificationConfigs`, `DeleteTaskPushNotificationConfig`, `GetExtendedAgentCard` (§5.3, §9.1) |
-| TaskState strings `"submitted"`, `"working"`, `"input-required"`, ... | ProtoJSON enum names `"TASK_STATE_SUBMITTED"`, `"TASK_STATE_WORKING"`, `"TASK_STATE_INPUT_REQUIRED"`, ... (§5.5) |
+| TaskState strings `"submitted"`, `"working"`, `"input-required"`... | ProtoJSON enum names `"TASK_STATE_SUBMITTED"`, `"TASK_STATE_WORKING"`, `"TASK_STATE_INPUT_REQUIRED"`... (§5.5) |
 | `role`: `"user"` / `"agent"` | `"ROLE_USER"` / `"ROLE_AGENT"` (§4.1.5) |
 | `kind` discriminators (`"message"`, `"task"`, `"status-update"`, `"artifact-update"`, part kinds `"text"`/`"file"`/`"data"`) | **Removed entirely** (§A.2.1 "Breaking Change: Kind Discriminator Removed"). The JSON member name is the discriminator (proto oneofs). |
 | `TaskStatusUpdateEvent.final` flag | **Removed.** Stream end is signaled by the task reaching a terminal state + server closing the stream (§3.1.2). |
@@ -71,62 +71,62 @@ counterpart v0 targets **spec v1.0 only**. Parsing legacy 0.3 payloads is out of
 
 | Model class | Proto message | Spec § | Required fields (REQUIRED in proto) |
 |---|---|---|---|
-| `Task` | `Task` | §4.1.1 | `id`, `status` — optional: `contextId`*, `artifacts`, `history`, `metadata` |
-| `TaskStatus` | `TaskStatus` | §4.1.2 | `state` — optional: `message`, `timestamp` |
+| `Task` | `Task` | §4.1.1 | `id`, `status`, optional: `contextId`*, `artifacts`, `history`, `metadata` |
+| `TaskStatus` | `TaskStatus` | §4.1.2 | `state`, optional: `message`, `timestamp` |
 | `TaskState` (StrEnum) | `enum TaskState` | §4.1.3 | 9 values, see §3 below |
-| `Message` | `Message` | §4.1.4 | `messageId`, `role`, `parts` (min 1) — optional: `contextId`, `taskId`, `metadata`, `extensions`, `referenceTaskIds` |
+| `Message` | `Message` | §4.1.4 | `messageId`, `role`, `parts` (min 1), optional: `contextId`, `taskId`, `metadata`, `extensions`, `referenceTaskIds` |
 | `Role` (StrEnum) | `enum Role` | §4.1.5 | `ROLE_UNSPECIFIED`, `ROLE_USER` (client→server), `ROLE_AGENT` (server→client) |
 | `Part` | `Part` (oneof `content`) | §4.1.6 | exactly one of `text` \| `raw` \| `url` \| `data`; shared optional `metadata`, `filename`, `mediaType` |
-| `Artifact` | `Artifact` | §4.1.7 | `artifactId` (unique within task), `parts` (min 1) — optional: `name`, `description`, `metadata`, `extensions` |
-| `TaskStatusUpdateEvent` | `TaskStatusUpdateEvent` | §4.2.1 | `taskId`, `contextId`, `status` — optional: `metadata`. **No `final`, no `kind`.** |
-| `TaskArtifactUpdateEvent` | `TaskArtifactUpdateEvent` | §4.2.2 | `taskId`, `contextId`, `artifact` — optional: `append`, `lastChunk`, `metadata` |
-| `SendMessageRequest` | `SendMessageRequest` | §3.2.1 | `message` — optional: `tenant`, `configuration`, `metadata` |
+| `Artifact` | `Artifact` | §4.1.7 | `artifactId` (unique within task), `parts` (min 1), optional: `name`, `description`, `metadata`, `extensions` |
+| `TaskStatusUpdateEvent` | `TaskStatusUpdateEvent` | §4.2.1 | `taskId`, `contextId`, `status`, optional: `metadata`. **No `final`, no `kind`.** |
+| `TaskArtifactUpdateEvent` | `TaskArtifactUpdateEvent` | §4.2.2 | `taskId`, `contextId`, `artifact`, optional: `append`, `lastChunk`, `metadata` |
+| `SendMessageRequest` | `SendMessageRequest` | §3.2.1 | `message`, optional: `tenant`, `configuration`, `metadata` |
 | `SendMessageConfiguration` | `SendMessageConfiguration` | §3.2.2 | all optional: `acceptedOutputModes`, `taskPushNotificationConfig`, `historyLength`, `returnImmediately` |
 | `SendMessageResponse` | `SendMessageResponse` (oneof) | §3.2.3, §9.4.1 | exactly one of `task` \| `message` |
 | `StreamResponse` | `StreamResponse` (oneof) | §3.2.3 | exactly one of `task` \| `message` \| `statusUpdate` \| `artifactUpdate` |
-| `GetTaskRequest` | `GetTaskRequest` | §3.1.3, §9.4.3 | `id` — optional: `tenant`, `historyLength` |
+| `GetTaskRequest` | `GetTaskRequest` | §3.1.3, §9.4.3 | `id`, optional: `tenant`, `historyLength` |
 | `ListTasksRequest` | `ListTasksRequest` | §3.1.4, §9.4.4 | all optional: `tenant`, `contextId`, `status`, `pageSize` (1..100, default 50), `pageToken`, `historyLength`, `statusTimestampAfter`, `includeArtifacts` (default false) |
 | `ListTasksResponse` | `ListTasksResponse` | §3.1.4 | `tasks`†, `nextPageToken` (`""` on final page), `pageSize`, `totalSize` |
-| `CancelTaskRequest` | `CancelTaskRequest` | §3.1.5, §9.4.5 | `id` — optional: `tenant`, `metadata` |
-| `SubscribeToTaskRequest` | `SubscribeToTaskRequest` | §3.1.6, §9.4.6 | `id` — optional: `tenant` |
-| `TaskPushNotificationConfig` | `TaskPushNotificationConfig` | §4.3.1‡, §10.5.1 | `url` — optional: `tenant`, `id`, `taskId`, `token`, `authentication` |
-| `AuthenticationInfo` | `AuthenticationInfo` | §4.3.2 | `scheme` (IANA HTTP auth scheme) — optional: `credentials` |
-| `GetTaskPushNotificationConfigRequest` | same name | §3.1.8 | `taskId`, `id` — optional: `tenant` |
-| `ListTaskPushNotificationConfigsRequest` | same name | §3.1.9 | `taskId` — optional: `pageSize`, `pageToken`, `tenant` |
+| `CancelTaskRequest` | `CancelTaskRequest` | §3.1.5, §9.4.5 | `id`, optional: `tenant`, `metadata` |
+| `SubscribeToTaskRequest` | `SubscribeToTaskRequest` | §3.1.6, §9.4.6 | `id`, optional: `tenant` |
+| `TaskPushNotificationConfig` | `TaskPushNotificationConfig` | §4.3.1‡, §10.5.1 | `url`, optional: `tenant`, `id`, `taskId`, `token`, `authentication` |
+| `AuthenticationInfo` | `AuthenticationInfo` | §4.3.2 | `scheme` (IANA HTTP auth scheme), optional: `credentials` |
+| `GetTaskPushNotificationConfigRequest` | same name | §3.1.8 | `taskId`, `id`, optional: `tenant` |
+| `ListTaskPushNotificationConfigsRequest` | same name | §3.1.9 | `taskId`, optional: `pageSize`, `pageToken`, `tenant` |
 | `ListTaskPushNotificationConfigsResponse` | same name | §3.1.9 | optional: `configs`, `nextPageToken` |
-| `DeleteTaskPushNotificationConfigRequest` | same name | §3.1.10 | `taskId`, `id` — optional: `tenant` |
+| `DeleteTaskPushNotificationConfigRequest` | same name | §3.1.10 | `taskId`, `id`, optional: `tenant` |
 | `GetExtendedAgentCardRequest` | same name | §3.1.11, §9.4.8 | optional: `tenant` (only field; §9.4.8 example omits `params` entirely) |
 
 \* `Task.contextId` is formally optional in the proto, but §3.4.1 requires servers to
 include a (possibly generated) `contextId` in responses → decision [D7](#d7).
 † `ListTasksResponse.tasks` is a REQUIRED array in the proto, which per §5.7 would forbid an
-empty result page — we deliberately do not enforce min-1 there (spec contradiction; see §9).
-‡ §4.3.1 of the rendered site displays "Error: Message PushNotificationConfig not found." —
+empty result page, we deliberately do not enforce min-1 there (spec contradiction; see §9).
+‡ §4.3.1 of the rendered site displays "Error: Message PushNotificationConfig not found.", 
 a site build bug; the proto message is `TaskPushNotificationConfig` (see §9).
 
 ### Agent Card model (§4.4, §4.5, §8)
 
 | Model class | Proto message | Spec § | Required fields |
 |---|---|---|---|
-| `AgentCard` | `AgentCard` | §4.4.1 | `name`, `description`, `supportedInterfaces` (min 1), `version`, `capabilities`, `defaultInputModes` (min 1), `defaultOutputModes` (min 1), `skills` (min 1) — optional: `provider`, `documentationUrl`, `securitySchemes`, `securityRequirements`, `signatures`, `iconUrl` |
-| `AgentInterface` | `AgentInterface` | §4.4.6 | `url`, `protocolBinding` (`"JSONRPC"` \| `"GRPC"` \| `"HTTP+JSON"` official), `protocolVersion` (e.g. `"1.0"`) — optional: `tenant` |
+| `AgentCard` | `AgentCard` | §4.4.1 | `name`, `description`, `supportedInterfaces` (min 1), `version`, `capabilities`, `defaultInputModes` (min 1), `defaultOutputModes` (min 1), `skills` (min 1), optional: `provider`, `documentationUrl`, `securitySchemes`, `securityRequirements`, `signatures`, `iconUrl` |
+| `AgentInterface` | `AgentInterface` | §4.4.6 | `url`, `protocolBinding` (`"JSONRPC"` \| `"GRPC"` \| `"HTTP+JSON"` official), `protocolVersion` (e.g. `"1.0"`), optional: `tenant` |
 | `AgentProvider` | `AgentProvider` | §4.4.2 | `url`, `organization` |
 | `AgentCapabilities` | `AgentCapabilities` | §4.4.3 | all optional: `streaming`, `pushNotifications`, `extensions`, `extendedAgentCard`. **No `stateTransitionHistory` in v1.0.** |
 | `AgentExtension` | `AgentExtension` | §4.4.4 | all optional: `uri`, `description`, `required`, `params` |
-| `AgentSkill` | `AgentSkill` | §4.4.5 | `id`, `name`, `description`, `tags` (min 1) — optional: `examples`, `inputModes`, `outputModes`, `securityRequirements` |
-| `AgentCardSignature` | `AgentCardSignature` | §4.4.7 | `protected`, `signature` — optional: `header` (JWS per §8.4; verification out of v0 scope) |
+| `AgentSkill` | `AgentSkill` | §4.4.5 | `id`, `name`, `description`, `tags` (min 1), optional: `examples`, `inputModes`, `outputModes`, `securityRequirements` |
+| `AgentCardSignature` | `AgentCardSignature` | §4.4.7 | `protected`, `signature`, optional: `header` (JWS per §8.4; verification out of v0 scope) |
 | `SecurityScheme` | `SecurityScheme` (oneof) | §4.5.1 | exactly one of `apiKeySecurityScheme` \| `httpAuthSecurityScheme` \| `oauth2SecurityScheme` \| `openIdConnectSecurityScheme` \| `mtlsSecurityScheme` |
-| `APIKeySecurityScheme` | same | §4.5.2 | `location` (`"query"`/`"header"`/`"cookie"` — v1.0 renamed 0.3's `in`), `name` — optional: `description` |
-| `HTTPAuthSecurityScheme` | same | §4.5.3 | `scheme` — optional: `description`, `bearerFormat` |
-| `OAuth2SecurityScheme` | same | §4.5.4 | `flows` — optional: `description`, `oauth2MetadataUrl` |
-| `OpenIdConnectSecurityScheme` | same | §4.5.5 | `openIdConnectUrl` — optional: `description` |
+| `APIKeySecurityScheme` | same | §4.5.2 | `location` (`"query"`/`"header"`/`"cookie"`, v1.0 renamed 0.3's `in`), `name`, optional: `description` |
+| `HTTPAuthSecurityScheme` | same | §4.5.3 | `scheme`, optional: `description`, `bearerFormat` |
+| `OAuth2SecurityScheme` | same | §4.5.4 | `flows`, optional: `description`, `oauth2MetadataUrl` |
+| `OpenIdConnectSecurityScheme` | same | §4.5.5 | `openIdConnectUrl`, optional: `description` |
 | `MutualTlsSecurityScheme` | same | §4.5.6 | (only optional `description`) |
 | `OAuthFlows` | `OAuthFlows` (oneof) | §4.5.7 | exactly one of `authorizationCode` \| `clientCredentials` \| `implicit` (deprecated) \| `password` (deprecated) \| `deviceCode` |
-| `AuthorizationCodeOAuthFlow` | same | §4.5.8 | `authorizationUrl`, `tokenUrl`, `scopes` — optional: `refreshUrl`, `pkceRequired` |
-| `ClientCredentialsOAuthFlow` | same | §4.5.9 | `tokenUrl`, `scopes` — optional: `refreshUrl` |
+| `AuthorizationCodeOAuthFlow` | same | §4.5.8 | `authorizationUrl`, `tokenUrl`, `scopes`, optional: `refreshUrl`, `pkceRequired` |
+| `ClientCredentialsOAuthFlow` | same | §4.5.9 | `tokenUrl`, `scopes`, optional: `refreshUrl` |
 | `ImplicitOAuthFlow` | same | §4.5.7 (deprecated) | proto has no REQUIRED annotations: `authorizationUrl`, `refreshUrl`, `scopes` all optional |
 | `PasswordOAuthFlow` | same | §4.5.7 (deprecated) | proto has no REQUIRED annotations: `tokenUrl`, `refreshUrl`, `scopes` all optional |
-| `DeviceCodeOAuthFlow` | same | §4.5.10 | `deviceAuthorizationUrl`, `tokenUrl`, `scopes` — optional: `refreshUrl` |
+| `DeviceCodeOAuthFlow` | same | §4.5.10 | `deviceAuthorizationUrl`, `tokenUrl`, `scopes`, optional: `refreshUrl` |
 | `SecurityRequirement` | `SecurityRequirement` | §4.4.1 | `schemes`: map of scheme name → list of scopes (proto wraps the list in `StringList`) → decision [D9](#d9) |
 
 **Discovery**: an A2A server MUST make an Agent Card available (§8.1); the well-known URI is
@@ -179,12 +179,12 @@ Normative lifecycle rules we implement:
   `>0` = at most N most-recent messages.
 - Results SHOULD be returned as **Artifacts**, not Messages; `Task.history` is not a
   guaranteed-complete record (§3.7).
-- Message deduplication by `messageId` is the server's concern (§3.3.1) — our mock server
+- Message deduplication by `messageId` is the server's concern (§3.3.1), our mock server
   treats replays of the same `messageId` as idempotent.
 
 ## 4. Methods and transports (§5, §9)
 
-v1.0 defines three bindings — JSON-RPC (§9), gRPC (§10), HTTP+JSON/REST (§11) — and **none
+v1.0 defines three bindings, JSON-RPC (§9), gRPC (§10), HTTP+JSON/REST (§11), and **none
 is mandatory**: agents MUST declare supported interfaces in the card; clients MUST select
 the first supported entry (§5.2, §8.3.2). **counterpart v0 implements the JSON-RPC binding
 only** (decision [D1](#d1); REST/gRPC → roadmap).
@@ -193,7 +193,7 @@ JSON-RPC binding (§9.1): JSON-RPC 2.0 over HTTP(S), `Content-Type: application/
 PascalCase method names identical to gRPC, streaming via SSE. The endpoint URL is whatever
 the Agent Card's `supportedInterfaces[].url` says (the spec fixes no path).
 
-Complete method set (§5.3 — also the exact JSON-RPC `method` strings):
+Complete method set (§5.3, also the exact JSON-RPC `method` strings):
 `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`,
 `SubscribeToTask`, `CreateTaskPushNotificationConfig`, `GetTaskPushNotificationConfig`,
 `ListTaskPushNotificationConfigs`, `DeleteTaskPushNotificationConfig`,
@@ -210,9 +210,9 @@ agents MUST interpret an empty/absent value as **0.3** and MUST return
   `Content-Type: text/event-stream`; **each SSE `data:` field carries a complete JSON-RPC
   2.0 response envelope** whose `result` is a `StreamResponse`, `id` echoing the request id:
   `data: {"jsonrpc": "2.0", "id": 1, "result": {...}}` (§9.4.2). (REST binding differs: bare
-  `StreamResponse` per event, §11.7 — not implemented in v0.)
-- Stream patterns (§3.1.2): *Message-only* — exactly one `Message`, then close; *Task
-  lifecycle* — first event is the `Task`, then zero or more status/artifact update events;
+  `StreamResponse` per event, §11.7, not implemented in v0.)
+- Stream patterns (§3.1.2): *Message-only*, exactly one `Message`, then close; *Task
+  lifecycle*, first event is the `Task`, then zero or more status/artifact update events;
   the stream MUST close when the task reaches a terminal state.
 - `SubscribeToTask` (§3.1.6): first event MUST be the full `Task` snapshot; terminal task →
   `UnsupportedOperationError`. This is the reconnection mechanism (no v0.3-style
@@ -224,7 +224,7 @@ agents MUST interpret an empty/absent value as **0.3** and MUST return
   `SendStreamingMessage`/`SubscribeToTask` MUST return `UnsupportedOperationError`;
   `capabilities.pushNotifications` false/absent → all four push-config ops MUST return
   `PushNotificationNotSupportedError`.
-- The spec never constrains SSE `event:`/`id:`/`retry:` fields — we emit only `data:` lines.
+- The spec never constrains SSE `event:`/`id:`/`retry:` fields, we emit only `data:` lines.
 
 ## 5. Errors (§3.3.2, §5.4, §9.5) → `counterpart/adapters/a2a/constants.py`
 
@@ -239,7 +239,7 @@ Standard JSON-RPC codes (names and default messages are spec-normative only for 
 | -32603 | `InternalError` | "Internal error" |
 
 A2A-specific codes (range −32001..−32099; only −32001..−32009 assigned; **−32000 is not
-defined**; no normative message strings — match on code, never on message text):
+defined**; no normative message strings, match on code, never on message text):
 
 | Code | Name | HTTP | When |
 |---|---|---|---|
@@ -264,67 +264,67 @@ Auth failures have **no JSON-RPC code**: the spec maps them to transport-layer H
 
 ## 6. Design decisions
 
-<a id="d1"></a>**D1 — JSON-RPC binding only in v0.** The spec makes no binding mandatory
+<a id="d1"></a>**D1, JSON-RPC binding only in v0.** The spec makes no binding mandatory
 (§5.2). JSON-RPC + SSE is what the Python ecosystem (a2a-sdk default, fasta2a) speaks.
 REST/gRPC are roadmap items; the Agent Card honestly declares only `JSONRPC`.
 
-<a id="d2"></a>**D2 — Wire enums + friendly aliases.** `TaskState`/`Role` are `StrEnum`s
+<a id="d2"></a>**D2, Wire enums + friendly aliases.** `TaskState`/`Role` are `StrEnum`s
 whose values are the exact wire strings (`TASK_STATE_*`, `ROLE_*`). User-facing APIs accept
-friendly aliases (`"input-required"`, `"working"`, `"user"`, ...) via `TaskState.coerce()` /
-`Role.coerce()` — so `task.reached_state("input-required")` works while the wire stays
+friendly aliases (`"input-required"`, `"working"`, `"user"`...) via `TaskState.coerce()` /
+`Role.coerce()`, so `task.reached_state("input-required")` works while the wire stays
 spec-exact.
 
-<a id="d3"></a>**D3 — Normative source = proto @ v1.0.1 + §5.5 ProtoJSON rules.** Field
+<a id="d3"></a>**D3, Normative source = proto @ v1.0.1 + §5.5 ProtoJSON rules.** Field
 names/required-ness come from the vendored proto. The generated JSON schema is used only as
 a second check on emitted JSON (its `additionalProperties: false` and integer-enum
 allowances are ignored as parsing rules, since they conflict with §5.7).
 
-<a id="d4"></a>**D4 — `extra="ignore"` on parse.** §5.7: receivers SHOULD ignore
+<a id="d4"></a>**D4, `extra="ignore"` on parse.** §5.7: receivers SHOULD ignore
 unrecognized fields. The conformance checker (milestone 5) may add a strict mode that
 *reports* unknown fields as warnings, but models never reject them.
 
-<a id="d5"></a>**D5 — String enum values only.** We emit and accept the ProtoJSON string
+<a id="d5"></a>**D5, String enum values only.** We emit and accept the ProtoJSON string
 names. Integer enum values (allowed by generic ProtoJSON, not mentioned by the A2A spec) are
 rejected in v0; revisit if real SDKs emit them.
 
-<a id="d6"></a>**D6 — Required-array min-1 enforced selectively.** Enforced where clearly
+<a id="d6"></a>**D6, Required-array min-1 enforced selectively.** Enforced where clearly
 intended (`Message.parts`, `Artifact.parts`, `AgentSkill.tags`, `AgentCard`'s four required
-arrays). Not enforced on `ListTasksResponse.tasks` (an empty page must be representable —
+arrays). Not enforced on `ListTasksResponse.tasks` (an empty page must be representable, 
 spec contradiction noted in §9).
 
-<a id="d7"></a>**D7 — `Task.contextId` optional in the model, always populated by our
+<a id="d7"></a>**D7, `Task.contextId` optional in the model, always populated by our
 server.** Parsing tolerates absence (proto-optional); the MockAgent server always sets it
 (§3.4.1 server duty).
 
-<a id="d8"></a>**D8 — Transition policy lives in the engine, not the models.** Since the
+<a id="d8"></a>**D8, Transition policy lives in the engine, not the models.** Since the
 spec defines no transition table, `TaskStatus` validation does not restrict transitions.
 The core engine (milestone 2) implements a documented default policy
 (`submitted → working → {interrupted ↔ working} → terminal`); adversarial personas can
 deliberately emit illegal transitions as a stimulus (the persona interface is designed to
-allow this — a spec-violating counterparty is a roadmap fast-follow, not a v0 persona).
+allow this, a spec-violating counterparty is a roadmap fast-follow, not a v0 persona).
 
-<a id="d9"></a>**D9 — SecurityRequirement: accept both shapes, emit strict ProtoJSON.**
+<a id="d9"></a>**D9, SecurityRequirement: accept both shapes, emit strict ProtoJSON.**
 Strict ProtoJSON of `SecurityRequirement{ map<string, StringList> schemes }` is
-`{"schemes": {"<name>": {"list": ["scope", ...]}}}`; the §8.5 sample card instead shows
-OpenAPI-style `{"<name>": ["scope", ...]}` (and calls the AgentCard field `security` while
+`{"schemes": {"<name>": {"list": ["scope"...]}}}`; the §8.5 sample card instead shows
+OpenAPI-style `{"<name>": ["scope"...]}` (and calls the AgentCard field `security` while
 the proto/table say `securityRequirements`). We parse **both** shapes and both field names
 (`securityRequirements` preferred, `security` accepted), and emit the proto-normative form
 under `securityRequirements`. The conformance checker must accept both too.
 
-<a id="d10"></a>**D10 — Base64: emit standard padded, accept unpadded.** Per ProtoJSON and
+<a id="d10"></a>**D10, Base64: emit standard padded, accept unpadded.** Per ProtoJSON and
 the generated schema's pattern. URL-safe input is normalized on parse.
 
-<a id="d11"></a>**D11 — Timestamps emit `YYYY-MM-DDTHH:mm:ss.sssZ`.** Millisecond
+<a id="d11"></a>**D11, Timestamps emit `YYYY-MM-DDTHH:mm:ss.sssZ`.** Millisecond
 precision, `Z` only (§5.6.1). Parsing accepts any ISO 8601 the spec's own examples use
 (e.g. second precision `2023-10-27T10:00:00Z`).
 
-<a id="d12"></a>**D12 — Absent vs null.** Optional model fields default to `None` and are
+<a id="d12"></a>**D12, Absent vs null.** Optional model fields default to `None` and are
 omitted from wire output (`exclude_none`), matching proto field-presence. Known limitation:
 a `Part` whose `data` member is JSON `null` (legal per `google.protobuf.Value`) cannot be
-distinguished from an absent `data` — documented, revisit only if it ever matters in
+distinguished from an absent `data`, documented, revisit only if it ever matters in
 practice.
 
-<a id="d13"></a>**D13 — Stream-close on interrupted states: configurable.** §3.1.2/§3.1.6
+<a id="d13"></a>**D13, Stream-close on interrupted states: configurable.** §3.1.2/§3.1.6
 say streams MUST close at *terminal* states; §11.7 says "terminal or interrupted". Default
 behavior (milestone 3): keep the stream open on interrupted states (the stricter §3.1.2
 reading); a MockAgent option will exercise the other behavior.
@@ -341,7 +341,7 @@ reading); a MockAgent option will exercise the other behavior.
   broadcast to concurrent subscribers in order (§3.5.2); close on terminal state.
 - Enforce capability gating errors (§3.3.4) and terminal-task errors (§3.1.1).
 - Honor `historyLength` (§3.2.4).
-- Read `A2A-Version` (empty ⇒ 0.3 semantics — we just record it; v0 serves 1.0 only and
+- Read `A2A-Version` (empty ⇒ 0.3 semantics, we just record it; v0 serves 1.0 only and
   returns `VersionNotSupportedError` for versions ≠ 1.0 when strict mode is on).
 
 ## 8. What the client role MUST do (checklist for milestone 3)
@@ -364,14 +364,14 @@ reading); a MockAgent option will exercise the other behavior.
    conformance checker (accept both).
 4. **Stream close on interrupted**: §3.1.2/§3.1.6 ("terminal") vs §11.7 ("terminal or
    interrupted") → D13 (configurable, default strict).
-5. **§4.3.1 renders "Error: Message PushNotificationConfig not found."** — site build bug;
+5. **§4.3.1 renders "Error: Message PushNotificationConfig not found."**, site build bug;
    the message is `TaskPushNotificationConfig` (create op takes/returns it directly per the
    proto rpc signature).
-6. **§9.3 skeleton shows `"method": "category/action"`** — stale 0.x placeholder; §9.1 and
+6. **§9.3 skeleton shows `"method": "category/action"`**, stale 0.x placeholder; §9.1 and
    every concrete example use PascalCase.
-7. **§6.7 file-part example is malformed JSON** (missing comma + trailing comma) — never
+7. **§6.7 file-part example is malformed JSON** (missing comma + trailing comma), never
    copy it into fixtures; use §A.2.1's well-formed equivalents.
-8. **§9.2/§11.2 examples still show `A2A-Version: 0.3`** — stale; §3.6.1's example is `1.0`.
+8. **§9.2/§11.2 examples still show `A2A-Version: 0.3`**, stale; §3.6.1's example is `1.0`.
 9. **`ListTasksResponse.tasks` REQUIRED + §5.7 min-1 rule** would forbid empty pages → D6.
 10. **JSON-RPC result for `DeleteTaskPushNotificationConfig` unspecified** (gRPC returns
     `Empty`). We will emit `"result": null` and accept `null`/`{}`.
@@ -380,11 +380,11 @@ reading); a MockAgent option will exercise the other behavior.
 
 **Verified against the live spec/proto (every claim adversarially re-checked by a second
 independent pass; 135/136 claims confirmed, 0 refuted):** everything in sections 0–5 and 9
-above — enum values, method names, error codes, field names/required-ness, SSE framing,
+above, enum values, method names, error codes, field names/required-ness, SSE framing,
 lifecycle rules, discovery path, versioning header semantics.
 
 **Assumed / our own judgment (not spec-mandated):** the friendly state aliases (D2); the
-default transition policy (D8); emitting strict-ProtoJSON `SecurityRequirement` (D9 — the
+default transition policy (D8); emitting strict-ProtoJSON `SecurityRequirement` (D9, the
 spec is self-contradictory); rejecting integer enums (D5); `result: null` for delete (§9.10);
 treating `Section 6` examples as non-normative when they conflict with the proto (§1.4 says
 the proto wins).
