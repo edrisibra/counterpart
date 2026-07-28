@@ -52,7 +52,7 @@ def serve_asgi(app: Starlette, host: str = "127.0.0.1", port: int = 0) -> Iterat
         yield f"http://{host}:{bound_port}"
     finally:
         # Graceful shutdown first (clean, no cancellation noise). Only if a handler is stuck
-        # (e.g. a stalling persona's in-flight Wait) escalate to force_exit so the daemon
+        # (e.g. a stalling persona's in-flight Wait), escalate to force_exit so the daemon
         # thread can't hang.
         server.should_exit = True
         thread.join(timeout=3.0)

@@ -77,7 +77,7 @@ def check(
         verdict = (
             "[green]conformant[/green]" if failures == 0 else f"[red]{failures} failure(s)[/red]"
         )
-        console.print(f"Score: {passes}/{scored} checks passed. {verdict}")
+        console.print(f"Score: {passes}/{scored} checks passed: {verdict}")
         console.print("[dim]Smoke report only; run a2a-tck for the full matrix.[/dim]")
 
     raise typer.Exit(code=1 if failures else 0)

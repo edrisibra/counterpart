@@ -3,9 +3,9 @@
 This is counterpart's centerpiece and it is deliberately protocol-agnostic: a ``Contract``
 verifies an arbitrary result payload (a dict, a value, whatever a protocol adapter hands
 it) against an expected structural shape plus predicates, and records the counterparty's
-self-reported status. The pairing of "claimed success" with "checks failed" is what turns a
-peer that reports ``completed`` while returning incomplete or corrupt output into a single,
-legible assertion instead of a debugging session.
+self-reported status. The pairing of "claimed success" with "checks failed" is what makes
+silent partial completion, where a peer reports ``completed`` while returning incomplete or
+corrupt output, a single legible assertion instead of a debugging session.
 
 The shape is a trimmed version of the delegation contract in Prakash, "The Provenance
 Paradox in Multi-Agent LLM Routing" (arXiv:2603.18043): we keep the parts that make a
@@ -203,7 +203,7 @@ class Contract(Generic[ReceiptT]):
             shape = create_model(model_name, **definitions)
         if shape is None:
             raise TypeError(
-                "Contract.returns() needs a shape: either returns(Model) or returns(dict[str, "
+                "Contract.returns() needs a shape: returns(Model), returns(dict[str, "
                 "float]), or field keywords like returns(price=float). Calling it with nothing "
                 "would disable structural validation while still reporting success; to check "
                 "only predicates, omit returns() entirely."

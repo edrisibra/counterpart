@@ -1,9 +1,8 @@
 """Conformance checks and adversarial probes for the CLI, run against a live A2A endpoint.
 
 Each check cites the spec section it verifies (from docs/spec-notes.md). This is a fast,
-pip-installed smoke report for the dev loop. The full a2a-tck matrix, which the docs point
-to, covers far more ground. Checks return structured outcomes so the CLI can render a table
-or JSON.
+pip-installed smoke report for the dev loop, not the full a2a-tck matrix (which the docs
+point to). Checks return structured outcomes so the CLI can render a table or JSON.
 """
 
 from __future__ import annotations

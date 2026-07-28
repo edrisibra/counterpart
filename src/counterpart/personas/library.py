@@ -59,8 +59,7 @@ class FalseSuccess:
     """FLAGSHIP: reports success while returning incomplete or corrupt output.
 
     Completes (terminal success) but the result is missing or garbage. Paired with a
-    ``Contract``, this catches the peer that reports success and returns incomplete or
-    corrupt output, which is the whole reason the tool exists.
+    ``Contract``, this is the silent-partial-completion catch the whole tool exists for.
     Pass ``result`` to control exactly what corrupt payload comes back.
     """
 
@@ -105,7 +104,7 @@ class ResourceAbuse:
 class Flaky:
     """Drops the connection mid-exchange, then (optionally) recovers on retry.
 
-    Secondary reliability persona: exercises whether a caller retries transient failures.
+    Secondary, reliability tier: exercises whether a caller retries transient failures.
     Drops on the first ``drops`` turns, then completes.
     """
 

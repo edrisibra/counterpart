@@ -56,7 +56,7 @@ class Progress(Directive):
 
 @dataclass(frozen=True)
 class NeedInput(Directive):
-    """Pause and ask the caller for more input (adapter: interrupted or input-required)."""
+    """Pause and ask the caller for more input (adapter: interrupted, i.e. input-required)."""
 
     question: str
 

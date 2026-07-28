@@ -152,7 +152,7 @@ belongs to somebody else, and each built around a different kind of failure.
   all report success. The standard's own published example of a *pending* decision reports success,
   with the only honest signal in an optional nested field.
 - [Satellite downlink](examples/satellite_downlink.py) schedules a pass with a ground station. Twelve
-  plans that all validate and each describe a different physical reality, such as an elevation in
+  plans that all validate and each describes a different physical reality, such as an elevation in
   radians where the field says degrees. This is the class of mistake that cost NASA the Mars Climate
   Orbiter.
 - [Chaos multihop](examples/chaos_multihop.py) is deliberately excessive. Four hops, each a separate

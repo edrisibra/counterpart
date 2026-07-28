@@ -34,8 +34,8 @@ def pytest_configure(config: pytest.Config) -> None:
     pytest reports "async def functions are not natively supported". That is the first thing
     a new user would hit, in the quickstart, before seeing anything work.
 
-    We only fill in the default. An explicit ``asyncio_mode`` in pytest.ini, pyproject.toml or
-    setup.cfg, or ``-o asyncio_mode=strict`` on the command line, always wins.
+    We only fill in the default. An explicit ``asyncio_mode`` in any of pytest.ini,
+    pyproject.toml, setup.cfg, or ``-o asyncio_mode=strict`` on the command line, always wins.
     """
     try:
         explicit = config.getini("asyncio_mode")
