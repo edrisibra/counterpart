@@ -103,6 +103,18 @@ recorded so future changes have a baseline:
   operations racing on the *same* task record — concurrent follow-ups, or a `CancelTask`
   overlapping an in-flight send — have no guard. Claimed by the super-test but never
   independently verified (its verifier agents were cut off mid-run), so treat as suspected.
+- **A contract sees the payload, not the clock.** A peer can take 400 ms and then assert in
+  its payload that the data is fresh; every rule passes. Latency/deadline enforcement belongs
+  to the caller (`asyncio.timeout` around the send), because "too late to be useful" is a
+  property of the business, not of the response. Demonstrated in `examples/limits_probe.py`.
+  A future `.within(ms)` helper could measure the round trip and fold it into the report.
+- **Cross-peer agreement is not expressible.** Ask five peers the same question and two lie:
+  all five pass their own per-response contract. Quorum, median-of-N and outlier rejection are
+  a layer above `Contract`, and today the user writes them. Worth considering as a first-class
+  `Quorum` primitive if anyone actually fans out to redundant peers.
+- **Nothing bounds delegation depth.** A self-delegating peer recurses until sockets or threads
+  run out; the probe's guard is hand-written. This is the same gap the deferred
+  `unbounded_subdelegation` persona would exercise.
 - **`_extract_result` reads only the latest artifact**, so a task returning several artifacts
   exposes just the last one to the contract.
 
