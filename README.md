@@ -5,22 +5,11 @@
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Test your [A2A](https://a2a-protocol.org/) agent against mocks that check for correct answers,
-not just completed tasks.
-
-If your agent delegates work to somebody else's agent, you cannot test it without them.
-counterpart stands in for those agents: ones that work, ones that stall, ones that come back with
-junk. It works in both directions, so you can be the caller or the one being called.
-
-The reason it also reads the replies is that A2A only tells you a task finished. Finished and
-correct are different things, and only one of them is on the wire.
-
-```bash
-pip install counterpart
-```
+[A2A](https://a2a-protocol.org/) lets one AI agent hand work to another. counterpart mocks the
+agent on the other end, including the ways it can go wrong:
 
 ```python
-async def test_peer_lies_about_finishing(mock_agent):
+async def test_carrier_reports_success_with_no_price(mock_agent):
     peer = mock_agent("false_success")     # reports done, returns garbage
 
     task = await peer.ask("Quote 2 pallets LA to Dallas", contract={"price": float})
@@ -29,8 +18,16 @@ async def test_peer_lies_about_finishing(mock_agent):
     assert task.contract_violated      # what it sent back was unusable
 ```
 
+```bash
+pip install counterpart
+```
+
 Installing the package is the whole setup. The `mock_agent` fixture and the async
 configuration come with it, so there is no `conftest.py` to write.
+
+If your agent hands work to an agent somebody else operates, you cannot test it without them.
+counterpart stands in for those agents: ones that work, ones that stall, ones that come back with
+junk. Six ship with it, all deterministic, none needing an LLM.
 
 `{"price": float}` is shorthand for a contract that requires a `price` field which is a
 number. When you want more, build one properly. Pass a pydantic model, add named checks, and
