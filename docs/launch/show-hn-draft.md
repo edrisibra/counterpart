@@ -53,6 +53,13 @@ First comment, post it right after submitting:
 >
 > None of them were malformed. All of them were completed tasks with real numbers in them.
 >
+> On why an agent protocol at all: freight already has machine to machine integration and it is
+> EDI, where the truckload tender's reply carries an accept or decline code and no price. Two
+> pallets is LTL, which doesn't use that, so it's three carrier APIs in two wire formats with three
+> auth models, and thirty carriers means thirty of each. A2A collapses that to one interface. Then
+> the content problem gets worse, because the per partner integration was where I used to notice a
+> carrier quoting without fuel.
+>
 > I'm using A2A, where a task reaching completed means the other agent stopped working. It
 > doesn't mean the result is usable. The official test kit checks whether a server follows the
 > protocol's rules, so it can't see this gap and shouldn't, because the rules were followed. Eval
@@ -86,9 +93,13 @@ Questions you'll get. Answer them plainly and concede the fair ones immediately.
 recorded, and the part that took the actual work, which is a spec accurate A2A server that walks
 the real task lifecycle so there's something to test the contract against.
 
-*Who's using A2A?* Concede it. Adoption is thin. Somebody probed 50 agents advertising A2A support
-and 0 of them answered a valid request. That's why the core has no protocol code in it, so the
-contract engine works on a plain HTTP response or a function return just as well.
+*Who's using A2A?* Do not concede more than the facts. The Linux Foundation's April 2026 release
+puts it past 150 supporting organizations, up from 50 a year earlier, names AWS, Cisco, Google, IBM,
+Microsoft, Salesforce, SAP and ServiceNow, and lists supply chain as one of the verticals. What is
+thin is publicly reachable agents: somebody probed 50 advertising A2A support and none answered a
+valid request. Those are two different claims and I ran them together for a while. Either way the
+core has no protocol code in it, so the contract engine works on a plain HTTP response or a
+function return.
 
 *Doesn't a2a-tck do this?* No, and be precise, because they do good work. a2a-tck checks whether
 your own server follows the protocol's rules. This checks the agent you delegate to, and it looks at

@@ -25,6 +25,52 @@ asked to do. Every layer I had was satisfied.
 My code was the only thing that cared whether the carrier was allowed to drive, and my code
 wasn't looking.
 
+## Why not five REST APIs
+
+Fair question, and freight already has an answer. Machine to machine procurement has existed there
+for decades as EDI, Electronic Data Interchange, and its truckload workhorse is transaction set 204,
+the load tender.
+
+A 204 is not a rate request. The standards body, ASC X12, describes it as an offer of a shipment to
+a carrier, and the message carries the shipper's own rate. The carrier's reply, a 990, is four
+segments long and its real payload is one code: A for accepted, D for declined. There is no price
+in it anywhere.
+
+Two pallets from Los Angeles to Dallas ships LTL, less than truckload, which never touches 204 and
+990. So I went to the carrier APIs instead. Estes is REST with an OAuth 2.0 bearer token plus a
+separate API key. Old Dominion is still SOAP, with the username and password inside the request
+body. XPO is OAuth 2.0 against its own token endpoint.
+
+Three carriers, two wire formats, three auth models. Each also keeps its own proprietary
+accessorial codes, which are the surcharges for things like a liftgate or a residential delivery.
+With five carriers I write five auth flows and five code mappings. At thirty I write thirty of each,
+which is why almost nobody does it and almost everybody buys a rating engine.
+
+A2A, the Agent2Agent protocol, lands on exactly that. Its own introduction says it is for agents
+"built using different frameworks, languages, or by different vendors" to work together "without
+needing access to each other's internal state, memory, or tools." The nine task states are defined
+in the protocol, so nobody reconciles my word for queued against theirs. Optional features are
+declared as fields instead of discovered by trial.
+
+The part that only matters across company lines is the opacity. Inside my own organisation I can
+read the other team's schema and ask them to change it. I can do neither with a carrier, and I do
+not control when they ship.
+
+Two things I should not overstate. The spec lists three ways to find an agent's card and only
+recommends the well known path, so discovery is closer to a convention than a guarantee. And one
+interface lets me reach thirty carriers, which is not the same as being able to price with them.
+LTL rates are account specific. Old Dominion's own guide says the credentials grant access to data
+for your account, and Estes quotes only for registered users, so each carrier still wants a pricing
+agreement and a credit application first.
+
+So the protocol removes the plumbing and leaves the commercial work. That is also why the content
+problem gets worse rather than better. The per partner integration was the thing that used to make
+me read a carrier's schema line by line, and that is where I would have noticed one of them quoting
+without fuel. Thirty carriers behind one interface, and nobody reads anything.
+
+While I'm admitting things: operating authority is checkable. The FMCSA publishes it and I could
+have called it. The check existed and calling it was my job. Nothing in my stack told me I hadn't.
+
 ## The bug isn't in the protocol
 
 I'm using [A2A](https://a2a-protocol.org/), the protocol for agents to hand work to each other.
@@ -120,6 +166,70 @@ best is the selection one, because it isn't about validation at all:
 The correct answer is to pay $592.50 more. That's the part I'd want someone to take away. This isn't
 a linter that makes your tests stricter, it's the difference between two bookings.
 
+## The kinds of wrong
+
+Three examples don't show a shape. Across three unrelated domains I wrote 59 payloads a peer could
+return while reporting success, and they collapse into a handful of kinds. A contract, in this
+library, is just the list of things I said a usable answer has to satisfy. These six are the ones
+furthest apart, picked so no two fail for the same reason.
+
+### A number with no frame attached
+
+A ground station returns `max_elevation_deg: 0.728` next to `angle_unit: "rad"`. Read as radians
+that is 41.7 degrees and a good overhead pass. Read as degrees, the antenna is aimed at the
+horizon. This is the class of mistake that destroyed the Mars Climate Orbiter, and it is catchable
+here only because the unit rides on the wire as its own field, which the schema chose to do.
+
+### A quote that contradicts its own arithmetic
+
+`total_usd: 1400.00` over line items of 1,180.00, 342.50 and 120.00, which sum to 1,642.50. A
+checker can reject that without knowing anything about what I asked for.
+
+### A price for the opposite trip
+
+The same quote with `origin_zip: "75201"` and `dest_zip: "90021"`. I asked for Los Angeles to
+Dallas and got a real, well formed price for Dallas to Los Angeles.
+
+### An input that expired
+
+A pass plan arrives with a `tle_epoch` 31 days old. A TLE, or two line element set, is the orbital
+state the schedule is computed from, and mine is good for about three days. The prediction was
+computed this morning from a month old orbit.
+
+### A refusal that reads as an answer
+
+An eligibility check comes back `coverage_active: False` with `reject_reason_code: "72"`. Code 72
+means the insurer could not identify the member, so it never answered the question at all. Read as
+"not covered", the clinic tells a patient their insurance won't pay. The other five here cost me
+money. This one costs a patient.
+
+### Success in the field a client is guaranteed to read
+
+The standard's own published example of a pending decision reports success at the top level, with
+the only honest signal in an optional nested field. The field a client must read says complete. The
+field carrying the truth is one a client is allowed to skip.
+
+## What contracts can't catch
+
+These four cannot be fixed by writing better contracts.
+
+Cross peer disagreement. I asked five peers the same question and two of them lied. All five passed
+their own contract, because a contract is per peer, and agreement between peers is not something a
+per peer check can see. Quorum, and median of N which means taking the middle answer of several,
+sit a layer above this. I write those by hand.
+
+The clock. A contract only ever sees the payload. A correct answer that arrives in 402 milliseconds
+when I needed 300 is still a miss, and whether that is too slow depends on my business rather than
+on the response, so the response cannot tell me.
+
+Delegation depth. Nothing bounds how far a peer delegates onward, so a four hop chain can do work I
+never authorised and hand me back something clean.
+
+Capability claims that behaviour does not back. An agent card can advertise a skill the agent
+cannot actually perform, and a contract sees a result rather than the card it came with. That
+mismatch is conformance ground, and a2a-tck is the suite built for it. Its RFC 2119 levelling keys
+the optional tests to whatever the card declared.
+
 ## The part I got wrong
 
 I expected the hard bit to be catching bad data. It wasn't. It was not crying wolf.
@@ -147,9 +257,6 @@ fourteen have to pass.
 It's testing you run before you ship. It doesn't watch production, so if you want to know what
 your agents are doing right now you want tracing, not this.
 
-It also only sees the payload, not the clock. A correct answer that arrives 400ms too late is
-still useless to you, and the contract can't tell. That timeout is yours to enforce.
-
 And if your agents are three functions in the same process, you don't need any of this. Call the
 functions.
 
@@ -169,6 +276,15 @@ than things I imagined. There's an issue tracker.
 - The four false positives section is the most credible thing here because it's an admission
   against interest. Keep it even if the post runs long.
 - Don't claim any users. There aren't any.
+- Verified by me against primary sources: the 59 payload count (counted in the repo), the Linux
+  Foundation April 2026 adoption numbers, the arXiv 2503.13657 citation, and the $592.50 and
+  $1,642.50 figures (run the example).
+- NOT verified by me, came from a research pass: the EDI 204 and 990 descriptions, and the Estes,
+  Old Dominion and XPO auth and wire format details. Spot check those against the carriers' own
+  developer docs before publishing, because a freight reader will know instantly if one is stale.
+- Two numbers in earlier versions of this post were wrong and got caught late: a "45 to 79 percent"
+  statistic that its supposed source does not contain, and "adoption is thin" which the Linux
+  Foundation release contradicts outright. Assume there is a third.
 - Title options, all plain: "My agent booked a carrier that wasn't allowed to haul freight" /
   "The cheapest quote came from an unlicensed carrier" / "Finished and correct are different
   things".
