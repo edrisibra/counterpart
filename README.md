@@ -121,6 +121,8 @@ warranted (the counterparty is a different company) and each with a different fa
 | Example | Shape | What it shows |
 |---|---|---|
 | [`freight_procurement.py`](examples/freight_procurement.py) | N competing offers | A shipper agent collects carrier quotes and picks the cheapest valid one. The naive version books the "cheapest" carrier whose completed quote has `price: "call for rate"` and sends a non-numeric price to invoicing. |
+| [`satellite_downlink.py`](examples/satellite_downlink.py) | units, time systems, reference frames | A mission-ops agent schedules a downlink pass with a ground-station network. 12 plans that all report `completed` while describing a different physical reality — a window in GPS time (18 s of leap seconds early), elevation in radians masquerading as degrees, west-positive longitude, an inertial frame where an earth-fixed one is needed, a month-old TLE, a negative link margin. This is the Mars Climate Orbiter failure class. |
+| [`chaos_multihop.py`](examples/chaos_multihop.py) | 4 hops, real sockets, 20 concurrent users | Deliberately excessive: a delegation chain where each hop is a separate real HTTP server, auth passed through, corruption injected at the deepest hop. Corruption three hops away is still caught by the contract at hop 1. |
 | [`prior_authorization.py`](examples/prior_authorization.py) | pipeline with cross-field consistency | A clinic's agent clears a procedure with a payer's eligibility and utilization-management agents. 25 modelled payer failures — all reporting `completed` — sourced from the X12 278 / FHIR Da Vinci PAS specs and practitioner forums, with each case labelled by how well it is attested. |
 
 ```bash
