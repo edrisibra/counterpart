@@ -6,7 +6,7 @@ that reports success while returning incomplete or corrupt work (silent partial
 completion), via declarative contract assertions and an adversarial persona suite.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from typing import Any
 

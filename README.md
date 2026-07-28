@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Mock the [A2A](https://a2a-protocol.org/) agents your agent talks to.
+Mock [A2A](https://a2a-protocol.org/) counterparty agents, and verify what they send back.
 
 If your agent delegates work to somebody else's agent, you cannot test it without them.
 counterpart gives you stand-in counterparties to point it at instead: ones that work, ones that
@@ -199,7 +199,7 @@ function return.
 
 ## Status
 
-Version 0.1.1, built against A2A spec v1.0. The API will change. Apache-2.0.
+Version 0.1.2, built against A2A spec v1.0. The API will change. Apache-2.0.
 
 If you have hit this failure in something you built, I would like to hear about it. Open an
 issue with the shape of the response that fooled you.

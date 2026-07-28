@@ -1,7 +1,7 @@
 [project]
 name = "counterpart"
-version = "0.1.1"
-description = "Mock the A2A agents your agent talks to, and check that their replies are actually usable."
+version = "0.1.2"
+description = "Mock A2A counterparty agents, and verify what they send back."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "counterpart contributors" }]
