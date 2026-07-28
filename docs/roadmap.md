@@ -60,6 +60,24 @@ The core engine (`core/`) is protocol-agnostic on purpose (no A2A imports), so a
 adapter (e.g. an MCP-based agent protocol, or A2A's gRPC/REST bindings) is possible later
 without touching the engine. v0 implements the **A2A JSON-RPC binding only** (spec-notes D1).
 
+## Known limitations (surfaced by dogfooding the examples, not yet addressed)
+
+- **Personas cannot hold state across tasks.** `MockAgent` builds a fresh `Behaviour` per task
+  so concurrent sessions stay independent — the right default, but it means a persona cannot
+  observe a *retry*. Modelling non-idempotency (a payer opening a second case and returning a
+  different authorization number) currently needs explicit class-level state in the persona. If
+  cross-task memory proves commonly necessary, add an opt-in session-scoped store rather than
+  weakening per-task isolation.
+- **`Contract` predicates see only the receipt.** Validating a response *against the request*
+  works by closing over the request in the lambda, which reads fine, but the contract cannot
+  generically report "field X did not match the request". A `.matches_request(...)` helper
+  would make request/response diffs first-class.
+- **`expect_status` compares raw strings.** Mixing wire values (`TASK_STATE_COMPLETED`) with
+  friendly aliases (`completed`) false-positives. Core is deliberately protocol-agnostic so it
+  cannot coerce A2A values; the fix is an adapter-supplied normalizer, not special-casing core.
+- **`_extract_result` reads only the latest artifact**, so a task returning several artifacts
+  exposes just the last one to the contract.
+
 ## Parking lot
 
 - Agent-Card JWS signing/verification (spec §8.4) beyond the bad-signature persona stimulus.

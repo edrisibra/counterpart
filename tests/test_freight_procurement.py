@@ -8,6 +8,7 @@ whose "completed" quote is unusable; with contracts it books the correct one.
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from pydantic import BaseModel
 
 from a2a_sandbox import Contract, MockAgent
@@ -42,7 +43,7 @@ def quote_contract(max_transit_days: int = 3) -> Contract:
         .returns(CarrierQuote)
         .require("price_positive", lambda q: q.price > 0)
         .require("price_plausible", lambda q: 200 <= q.price <= 20_000)
-        .require("usd", lambda q: q.currency == "USD")
+        .require("usd", lambda q: q.currency.strip().upper() == "USD")
         .require("meets_deadline", lambda q: q.transit_days <= max_transit_days)
         .require(
             "quote_not_expired",
@@ -95,6 +96,32 @@ async def test_valid_quote_passes_the_policy() -> None:
         result = await client.send_message(LOAD, contract=quote_contract())
     assert result.completed
     assert not result.contract_violated
+
+
+# Legitimate carrier variation that MUST be accepted. Added after researching the prior-auth
+# vertical showed that every bug in these contracts was a FALSE POSITIVE, not a miss — the
+# failure mode that actually gets a testing library deleted from a project.
+GOOD_VARIATIONS = {
+    "lowercase_currency": {**GOOD, "currency": "usd"},
+    "padded_currency": {**GOOD, "currency": " USD "},
+    "integer_price": {**GOOD, "price": 1420},
+    "valid_until_with_time": {**GOOD, "valid_until": FUTURE + "T23:59:59"},
+    "faster_than_required": {**GOOD, "transit_days": 1},
+    "at_deadline": {**GOOD, "transit_days": 3},
+    "expires_today": {**GOOD, "valid_until": datetime.now(UTC).date().isoformat()},
+}
+for _n, _p in GOOD_VARIATIONS.items():
+    register(f"carrier_ok_{_n}", _quoting_carrier(_p))
+
+
+@pytest.mark.parametrize("name", list(GOOD_VARIATIONS))
+async def test_legitimate_carrier_variation_is_accepted(name: str) -> None:
+    """No false positives: an over-strict contract gets switched off, worse than none."""
+    async with MockAgent(f"carrier_ok_{name}").client() as client:
+        result = await client.send_message(LOAD, contract=quote_contract())
+    assert not result.contract_violated, (
+        f"FALSE POSITIVE on {name}: {[c.name for c in result.report.failures]}"
+    )
 
 
 async def test_each_bad_quote_is_caught_by_its_own_rule() -> None:

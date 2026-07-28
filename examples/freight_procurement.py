@@ -45,7 +45,9 @@ def quote_contract(max_transit_days: int = 3) -> Contract:
         .returns(CarrierQuote)
         .require("price_positive", lambda q: q.price > 0)
         .require("price_plausible", lambda q: 200 <= q.price <= 20_000)  # lane sanity band
-        .require("usd", lambda q: q.currency == "USD")
+        # Case-insensitive: a carrier sending "usd" is not a defect. Rejecting it would be
+        # a false positive, and an over-strict contract gets switched off.
+        .require("usd", lambda q: q.currency.strip().upper() == "USD")
         .require("meets_deadline", lambda q: q.transit_days <= max_transit_days)
         .require(
             "quote_not_expired",
@@ -272,10 +274,11 @@ async def main():
     return naive_bad and guarded_good
 
 
-ok = asyncio.run(main())
-print(
-    "\nVERDICT:",
-    "a2a-sandbox caught the business-damaging failures ✅"
-    if ok
-    else "did not demonstrate the catch ❌",
-)
+if __name__ == "__main__":
+    ok = asyncio.run(main())
+    print(
+        "\nVERDICT:",
+        "a2a-sandbox caught the business-damaging failures ✅"
+        if ok
+        else "did not demonstrate the catch ❌",
+    )

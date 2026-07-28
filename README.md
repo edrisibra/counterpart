@@ -95,6 +95,26 @@ app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])  # an ASGI 
 # run it: uvicorn.run(app, ...)   — or drive it in-process with A2AClient(app=app)
 ```
 
+## Worked examples
+
+Two runnable scenarios in [`examples/`](examples), each in a vertical where A2A is genuinely
+warranted (the counterparty is a different company) and each with a different failure shape:
+
+| Example | Shape | What it shows |
+|---|---|---|
+| [`freight_procurement.py`](examples/freight_procurement.py) | N competing offers | A shipper agent collects carrier quotes and picks the cheapest valid one. The naive version books the "cheapest" carrier whose completed quote has `price: "call for rate"` and sends a non-numeric price to invoicing. |
+| [`prior_authorization.py`](examples/prior_authorization.py) | pipeline with cross-field consistency | A clinic's agent clears a procedure with a payer's eligibility and utilization-management agents. 25 modelled payer failures — all reporting `completed` — sourced from the X12 278 / FHIR Da Vinci PAS specs and practitioner forums, with each case labelled by how well it is attested. |
+
+```bash
+uv run python examples/prior_authorization.py
+```
+
+Both examples measure two things, and the second matters more: every unusable answer is caught,
+**and** legitimate counterparty variation is *not* flagged. Researching the real value sets for
+the prior-auth example found three bugs in those contracts — and every one was a false positive
+(rejecting a valid `A1` certification, rejecting a correctly-echoed member id, mis-parsing a
+date), not a miss. An over-strict contract gets switched off, which is worse than none.
+
 ## `check` and `attack` a live agent
 
 ```bash
