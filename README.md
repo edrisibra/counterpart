@@ -15,11 +15,12 @@ up a counterparty that misbehaves on purpose, point your agent at it, and assert
 
 ## Quickstart
 
-Install (uses [uv](https://docs.astral.sh/uv/)):
-
 ```bash
-uv add a2a-sandbox        # or: pip install a2a-sandbox
+pip install a2a-sandbox        # or: uv add a2a-sandbox
 ```
+
+That's the whole setup. No `conftest.py`, no ini options — installing the package registers
+the pytest fixture and configures async tests for you.
 
 The scary one first — a peer that **lies about success**:
 
