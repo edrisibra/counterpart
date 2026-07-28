@@ -49,9 +49,20 @@ contract = (
 
 The mock runs inside your test process. No socket, no port, nothing on the network. `mock_agent`
 is the pytest fixture; `MockAgent` is the same object without pytest, and its `.serve()` binds a
-real address when you need to point another process at it. It works in both directions too:
-`wrap()` turns your own agent into an A2A server so the mock can call it and hold your answers to
-the same contract.
+real address when you need to point another process at it.
+
+It also works in the other direction, with the mock as the caller and your agent answering.
+`wrap()` turns any function into an A2A server, and the same contract now judges your answers:
+
+```python
+from counterpart import MockAgent, serve_asgi, wrap
+
+with serve_asgi(wrap(my_agent, name="quoting-agent")) as url:
+    peer = MockAgent("cooperative")
+    task = await peer.send_task(url, "Quote 2 pallets", contract={"price": float})
+
+assert not task.contract_violated   # your own answer held up
+```
 
 If your agents are three functions in the same process, you do not need any of this.
 
@@ -125,6 +136,6 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Contributing
 
-Version 0.1.9, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.10, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
