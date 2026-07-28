@@ -34,16 +34,16 @@ result is any good. Those are two different claims and only one of them is on th
 Once I started looking for this, it was everywhere in the quotes I was getting back:
 
 One carrier came in cheapest because the quote excluded the fuel surcharge, which in freight is a
-percentage added on top and is not optional. The invoice would have arrived about 30% higher than
-the number I compared against.
+percentage added on top and is not optional. Its $1,300 would have invoiced at $1,642.50, about a
+quarter more than the number I compared against.
 
 Another quoted my shipment at freight class 50 when it's class 70. Class comes from density, and
 a carrier that reclassifies your pallet on the dock bills you the difference. The cheap number
 was cheap because it described a different, lighter shipment.
 
-Another quoted three days transit, which cleared my four day deadline, except it was three
-*calendar* days against a deadline I was counting in business days. Picked up Thursday, that
-delivers the following week.
+Another said three days transit and did not say which kind of days it meant. Transit is normally
+quoted in business days, so from a Thursday pickup that is the following Tuesday. I had been
+planning around Sunday. Nothing in the payload said which.
 
 None of those were malformed. Every one of them was a completed task with a valid payload and a
 real number in it. If you sort by price and book the winner, you lose money on all three, and you
@@ -53,9 +53,9 @@ find out weeks later from an invoice that doesn't match anything you agreed to.
 
 I checked whether I was missing something obvious.
 
-Conformance testing didn't help, because the protocol behaved correctly. That's the whole point of
-conformance, and it passed, correctly. There's an official test kit for A2A and it will happily
-tell you a server is compliant while that server hands you a quote from an unlicensed carrier.
+Conformance testing didn't help, because the protocol behaved. That's the whole point of
+conformance and it did its job. There's an official test kit for A2A and it will happily tell you
+a server is compliant while that server hands you a quote from an unlicensed carrier.
 
 Evaluation platforms didn't help either. They simulate a user talking to your agent and score how
 well it reasons. Useful, different problem. Nobody was checking whether the thing the *other*
@@ -117,7 +117,7 @@ best is the selection one, because it isn't about validation at all:
 ```
 
 The correct answer is to pay $592.50 more. That's the part I'd want someone to take away. This isn't
-a linter that makes your tests stricter, it's the difference between two different bookings.
+a linter that makes your tests stricter, it's the difference between two bookings.
 
 ## The part I got wrong
 

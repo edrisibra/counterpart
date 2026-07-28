@@ -28,7 +28,8 @@ Show HN: Testing an agent against a peer that reports success and sends junk
 Show HN: Finished and correct are different things
 ```
 
-Link the repo. Put the blog post in your first comment.
+Link the repo. Put the blog post in your first comment. HN has no inline code formatting, so
+backticks show up as literal backticks. There are none left in the comment below, keep it that way.
 
 First comment, post it right after submitting:
 
@@ -44,15 +45,16 @@ First comment, post it right after submitting:
 > looking.
 >
 > Once I started checking, the same thing was everywhere. One quote was cheapest because it left
-> out the fuel surcharge, which is a percentage added on top and isn't optional, so the invoice
-> lands about 30% over the number I compared. One quoted my shipment a freight class lighter than
-> it is, and carriers reclassify on the dock and bill you the difference. One quoted 3 days
-> transit against my 4 day deadline, except it meant calendar days and I meant business days.
+> out the fuel surcharge, which is a percentage added on top and isn't optional, so its $1,300
+> invoices at $1,642.50. One quoted my shipment a freight class lighter than it is, and carriers
+> reclassify on the dock and bill you the difference. One said 3 days transit without saying
+> whether it meant business or calendar days, which from a Thursday pickup is the difference
+> between Sunday and the following Tuesday.
 >
 > None of them were malformed. All of them were completed tasks with real numbers in them.
 >
-> I'm using A2A, where a task reaching `completed` means the other agent stopped working. It
-> doesn't mean the result is usable. Conformance testing can't see the gap, correctly, because the
+> I'm using A2A, where a task reaching completed means the other agent stopped working. It
+> doesn't mean the result is usable. Conformance testing can't see the gap, and shouldn't, because the
 > protocol behaved. Eval platforms simulate a user talking to your agent and score its reasoning,
 > which is a different problem. Mock servers replay canned responses, so they tell you whether
 > your code handles a response, not whether it should have accepted it.
@@ -118,7 +120,7 @@ false positives I found in my own checks. One link at the end. Roughly 70% probl
 
 Lowest risk of the three and the most useful. Ask a question, don't announce anything:
 
-> Is counterparty and negative testing in scope for the project's tooling? a2a-tck covers server
+> Are counterparty and negative testing in scope for the project's tooling? a2a-tck covers server
 > side conformance well. I've been working on the other direction: mock agents that misbehave on
 > purpose, plus checking the content of what comes back, because a completed task tells you the
 > agent stopped and not that the result is usable. Built it because I needed it. Happy to
