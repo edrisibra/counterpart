@@ -6,7 +6,7 @@ is usable. A task reaching ``completed`` only means the peer stopped working, so
 contract looks at the content of the reply rather than the status of the call.
 """
 
-__version__ = "0.1.13"
+__version__ = "0.1.14"
 
 from typing import Any
 

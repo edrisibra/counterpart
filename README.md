@@ -23,10 +23,11 @@ async def test_carrier_reports_success_with_no_price(mock_agent):
 
 ## Why counterpart
 
-The agents your agent depends on belong to other people. You cannot spin up a carrier's agent
-or an insurer's agent to test against, so counterpart stands in for them. And it reads what they
-send back, because `completed` only means the other agent stopped working. Every one of these
-arrives as a completed task with the protocol fully satisfied:
+Sooner or later a peer agent will stall, drop mid-task, or send your agent something wrong. The
+only question is where that happens first: in production with real money attached, or in a test
+you control. counterpart makes it the test. Each failure is reproducible on demand in pytest, and
+each reply is checked, because `completed` only means the other agent stopped working. Every one
+of these arrives as a completed task with the protocol fully satisfied:
 
 ```python
 {"message": "Your quote is ready!"}          # reads fine, contains no price
@@ -137,6 +138,6 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Contributing
 
-Version 0.1.13, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.14, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
