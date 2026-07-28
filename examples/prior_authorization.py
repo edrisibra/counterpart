@@ -31,10 +31,32 @@ are drawn from the actual standards and industry data, not invented:
   up from 3.2 percent in 2022," at a rework cost of $57.23 per claim (up from $43.84 in 2022).
   https://premierinc.com/newsroom/policy/claims-adjudication-costs-providers-257-billion-18-billion-is-potentially-unnecessary-expense
 
-Deliberately NOT modelled (they look dramatic but are strawmen a schema catches for free):
-literal sentinel auth numbers like "N/A"/"TBD" typed into a portal; a knee arthroscopy
-"downgraded" to a physician office (POS 11), which no payer would return; negative deductibles;
-and a bare prose reply. Each is replaced below by the realistic version of the same idea.
+Practitioner reports (AAPC forums and r/CodingandBilling, reached via public archives) supply
+the messier long tail, including the two best-attested shapes below:
+* An approval that never produced a number — "they got the auth but it didn't generate an
+  approval number" — so there is nothing to put in box 23 of the claim. This is the *real*
+  version of a "placeholder" auth number: the field is null or absent while status says
+  approved. https://www.reddit.com/r/CodingandBilling/comments/1qkk5oi/
+* Payers declining to put a no-auth-needed answer in writing — "they refuse to provide anything
+  in writing that the procedure doesn't need prior authorization" — which is why an
+  unsubstantiated `authorization_required: false` is worthless.
+  https://www.aapc.com/discuss/threads/claim-denied-for-no-authorization.157273/
+* Denials whose stated reason is internal jargon — e.g. "Included with Primary Code Review" —
+  that the provider cannot act on.
+  https://www.aapc.com/discuss/threads/umr-voiding-prior-authorizations.204030/
+
+HONEST SOURCING. Each case below is labelled with how well it is attested. Two are marked
+`unattested`: a targeted search of those communities for wrong-side/laterality authorization
+defects found none (the laterality threads that exist are provider-side coding questions), and
+integer-cents-vs-dollars is a generic REST integration bug rather than a reported payer
+behaviour. They are kept because the *consequence* is severe and cheap to guard, not because
+the frequency is established. Reddit, chat.fhir.org, HL7 JIRA and the Availity/Optum/HFMA
+communities were wholly or partly unreachable, so absence of evidence here is weak evidence.
+
+Deliberately NOT modelled (strawmen a schema catches for free): literal sentinel auth numbers
+like "N/A"/"TBD" typed into a portal; a knee arthroscopy "downgraded" to a physician office
+(POS 11), which no payer would return; negative deductibles; and a bare prose reply. Each is
+replaced below by the realistic version of the same idea.
 
 Run:  uv run python examples/prior_authorization.py
 """
@@ -81,6 +103,7 @@ class AuthRequest:
     laterality: str = "RT"
     place_of_service: str = "22"  # on-campus hospital outpatient
     service_type_code: str = "50"  # X12 271 service type: Hospital-Outpatient
+    rendering_provider_npi: str = "1730164412"  # the surgeon who will actually operate
     service_date: str = SERVICE_DATE
 
 
@@ -106,6 +129,9 @@ class Eligibility(BaseModel):
     other_payer_is_primary: bool = False
     reject_reason_code: str | None = None  # 271 AAA reject: 42/72/75/80 — not a coverage answer
     deductible_remaining_cents: int | None = None
+    # Accumulators are frequently stale: the figure is real but was true days ago. Quoting a
+    # patient from a stale accumulator is the attested money defect (not cents-vs-dollars).
+    deductible_as_of: str | None = None
 
 
 class AuthDetermination(BaseModel):
@@ -118,6 +144,9 @@ class AuthDetermination(BaseModel):
     diagnosis_codes: list[str] = []
     laterality: str | None = None
     place_of_service: str | None = None
+    # An auth is bound to a rendering provider; one issued against the requesting or a
+    # different NPI is real, and unusable by the surgeon who will operate.
+    rendering_provider_npi: str | None = None
     effective_date: str | None = None
     expiration_date: str | None = None
     provisional: bool = False
@@ -166,6 +195,19 @@ def _iso_date(value: str | None) -> date | None:
         return None
 
 
+def _same_id(returned: str | None, requested: str) -> bool:
+    """Identity comparison that is correct in BOTH directions.
+
+    Payers echo member ids with different case and padding (" zgd123456789 " for
+    "ZGD123456789"), so a raw `==` rejects the *correct* member — a false positive. A substring
+    or prefix check would go the other way and accept a *different* member. Normalise, then
+    require full equality.
+    """
+    if returned is None:
+        return False
+    return returned.strip().casefold() == requested.strip().casefold()
+
+
 def _is_approval(det: AuthDetermination) -> bool:
     """True only if the payer clearly certified the request.
 
@@ -187,7 +229,7 @@ def eligibility_contract(req: AuthRequest) -> Contract:
         # coverage answer turns a covered patient away — the one failure whose victim is the
         # patient rather than the provider.
         .require("is_a_coverage_answer", lambda e: e.reject_reason_code is None)
-        .require("member_matches", lambda e: e.member_id.strip() == req.member_id)
+        .require("member_matches", lambda e: _same_id(e.member_id, req.member_id))
         .require("coverage_active", lambda e: e.coverage_active is True)
         # "Active coverage" alone is the weakest assertion in a 271: it must cover the service
         # type we are about to render.
@@ -208,6 +250,15 @@ def eligibility_contract(req: AuthRequest) -> Contract:
             lambda e: (
                 (start := _iso_date(e.coverage_start)) is not None
                 and start <= date.fromisoformat(req.service_date)
+            ),
+        )
+        # A real accumulator figure that was true days ago still misquotes the patient today.
+        # (This, not integer-cents-vs-dollars, is the money defect practitioners report.)
+        .require(
+            "accumulator_is_current",
+            lambda e: (
+                e.deductible_remaining_cents is None
+                or ((asof := _iso_date(e.deductible_as_of)) is not None and asof >= TODAY)
             ),
         )
         .expect_status("completed")
@@ -245,7 +296,7 @@ def auth_contract(req: AuthRequest) -> Contract:
             lambda a: not any(w in a.notes.lower() for w in _CAVEAT_WORDS),
         )
         # 6. Our patient (record overlay / duplicate-MRN errors are also a HIPAA disclosure).
-        .require("member_matches", lambda a: a.member_id.strip() == req.member_id)
+        .require("member_matches", lambda a: _same_id(a.member_id, req.member_id))
         # 7. The procedure we asked for (code drift to a related, cheaper, bundled code).
         .require("covers_requested_cpt", lambda a: req.cpt_code in a.cpt_codes)
         # 8. Not certified against a nationally non-covered diagnosis (CMS NCD 150.9).
@@ -255,8 +306,18 @@ def auth_contract(req: AuthRequest) -> Contract:
         )
         # 9. Correct side — wrong laterality is a wrong-site and denial risk.
         .require("laterality_matches", lambda a: (a.laterality or "").upper() == req.laterality)
-        # 10. Same setting we requested (MSK site-of-service redirection to an ASC is common).
+        # 10. Same setting we requested (MSK site-of-service redirection to an ASC is common),
+        #     and the setting must be STATED — an approval that omits it withholds the exact key
+        #     the claim is adjudicated against.
         .require("place_of_service_matches", lambda a: a.place_of_service == req.place_of_service)
+        # 11. Bound to the surgeon who will actually operate.
+        .require(
+            "rendering_npi_matches",
+            lambda a: (
+                a.rendering_provider_npi is None
+                or _same_id(a.rendering_provider_npi, req.rendering_provider_npi)
+            ),
+        )
         # 11. A parseable window that actually covers the service date.
         .require(
             "window_covers_service_date",
@@ -290,6 +351,7 @@ CLEAN_ELIGIBILITY = {
     "covered_service_types": ["30", "50", "98"],
     "other_payer_is_primary": False,
     "deductible_remaining_cents": 45_000,
+    "deductible_as_of": TODAY.isoformat(),
 }
 
 CLEAN_AUTH = {
@@ -301,6 +363,7 @@ CLEAN_AUTH = {
     "diagnosis_codes": [REQUEST.icd10_code],
     "laterality": REQUEST.laterality,
     "place_of_service": REQUEST.place_of_service,
+    "rendering_provider_npi": REQUEST.rendering_provider_npi,
     "effective_date": TODAY.isoformat(),
     "expiration_date": IN_A_YEAR,
     "patient_responsibility_cents": 45_000,
@@ -344,6 +407,11 @@ ELIGIBILITY_CASES: dict[str, tuple[dict, str, str]] = {
         {**CLEAN_ELIGIBILITY, "coverage_start": NEXT_MONTH},
         "common",
         "coverage does not begin until after the service date",
+    ),
+    "elig_stale_accumulator": (
+        {**CLEAN_ELIGIBILITY, "deductible_as_of": LAST_MONTH},
+        "very common",
+        "real deductible figure, but as-of last month — misquotes the patient today",
     ),
     "elig_wrong_member": (
         {**CLEAN_ELIGIBILITY, "member_id": "W999888777"},
@@ -431,13 +499,33 @@ AUTH_CASES: dict[str, tuple[dict, str, str]] = {
     ),
     "auth_dollars_as_cents": (
         {**CLEAN_AUTH, "patient_responsibility_cents": 45_000_00 * 100},
+        "unattested",
+        "patient responsibility off by 100x (generic integration bug, not payer-attested)",
+    ),
+    "auth_approved_without_number": (
+        {**CLEAN_AUTH, "authorization_number": None},
+        "very common",
+        "certified but no number was ever generated — nothing to put in box 23",
+    ),
+    "auth_setting_not_stated": (
+        {**CLEAN_AUTH, "place_of_service": None},
         "common",
-        "patient responsibility off by 100x (dollars written into a cents field)",
+        "approval omits the setting the claim is adjudicated against",
+    ),
+    "auth_wrong_rendering_npi": (
+        {**CLEAN_AUTH, "rendering_provider_npi": "1043210987"},
+        "common",
+        "auth bound to a different NPI than the surgeon who will operate",
+    ),
+    "auth_modifier_stripped": (
+        {**CLEAN_AUTH, "laterality": None},
+        "common",
+        "laterality modifier dropped from the approved procedure",
     ),
     "auth_wrong_laterality": (
         {**CLEAN_AUTH, "laterality": "LT"},
-        "long-tail",
-        "certifies the LEFT knee for a RIGHT knee request (wrong-site risk)",
+        "unattested",
+        "certifies the LEFT knee for a RIGHT knee request (severe if real; no forum case found)",
     ),
     "auth_wrong_member": (
         {**CLEAN_AUTH, "member_id": "W555000111"},
@@ -483,6 +571,14 @@ GOOD_VARIATIONS: dict[str, tuple[dict, str]] = {
     "informational_notes": (
         {**CLEAN_AUTH, "notes": "Certified. Call for questions."},
         "notes present but carrying no caveat",
+    ),
+    "member_id_echo_padded": (
+        {**CLEAN_AUTH, "member_id": f"  {REQUEST.member_id.lower()} "},
+        "correct member echoed with different case/padding (a raw == would reject it)",
+    ),
+    "npi_omitted": (
+        {k: v for k, v in CLEAN_AUTH.items() if k != "rendering_provider_npi"},
+        "payer omits the optional rendering NPI",
     ),
     "waiver_with_number": (
         {**CLEAN_AUTH, "authorization_required": False},
