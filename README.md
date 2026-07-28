@@ -3,7 +3,7 @@
 [![CI](https://github.com/edrisibra/counterpart/actions/workflows/ci.yml/badge.svg)](https://github.com/edrisibra/counterpart/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/edrisibra/counterpart/blob/main/LICENSE)
 
 ---
 
@@ -97,18 +97,18 @@ and reports what came back. For the full rulebook use the official
 
 ## Examples
 
-Five runnable scenarios in [examples](examples), each in a domain where the counterparty
+Five runnable scenarios in [examples](https://github.com/edrisibra/counterpart/tree/main/examples), each in a domain where the counterparty
 genuinely belongs to somebody else:
 
-- [Freight procurement](examples/freight_procurement.py): pick the cheapest usable quote, not the
+- [Freight procurement](https://github.com/edrisibra/counterpart/blob/main/examples/freight_procurement.py): pick the cheapest usable quote, not the
   cheapest string that parses.
-- [Freight edge cases](examples/freight_edge_cases.py): 22 ways a quote is unusable, 14 that look
+- [Freight edge cases](https://github.com/edrisibra/counterpart/blob/main/examples/freight_edge_cases.py): 22 ways a quote is unusable, 14 that look
   wrong and are fine. Checking them changes which carrier gets booked, at $592.50 more.
-- [Prior authorization](examples/prior_authorization.py): 25 insurer replies that all report
+- [Prior authorization](https://github.com/edrisibra/counterpart/blob/main/examples/prior_authorization.py): 25 insurer replies that all report
   success, including the standard's own example of a pending decision that does.
-- [Satellite downlink](examples/satellite_downlink.py): twelve plans that all validate and each
+- [Satellite downlink](https://github.com/edrisibra/counterpart/blob/main/examples/satellite_downlink.py): twelve plans that all validate and each
   describes a different physical reality. Radians where the field says degrees.
-- [Chaos multihop](examples/chaos_multihop.py): four hops, real sockets, twenty concurrent users,
+- [Chaos multihop](https://github.com/edrisibra/counterpart/blob/main/examples/chaos_multihop.py): four hops, real sockets, twenty concurrent users,
   corruption injected at the bottom and caught at the top.
 
 Every example tests both directions: each unusable answer is caught, and each legitimate answer
@@ -117,14 +117,14 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Documentation
 
-- [docs/spec-notes.md](docs/spec-notes.md) maps A2A v1.0 to the code, citing the spec throughout.
-- [docs/prior-art.md](docs/prior-art.md) covers what already exists and where this fits.
-- [docs/roadmap.md](docs/roadmap.md) lists what is out of scope, and
-  [limits_probe.py](examples/limits_probe.py) demonstrates it: no production monitoring, no
+- [docs/spec-notes.md](https://github.com/edrisibra/counterpart/blob/main/docs/spec-notes.md) maps A2A v1.0 to the code, citing the spec throughout.
+- [docs/prior-art.md](https://github.com/edrisibra/counterpart/blob/main/docs/prior-art.md) covers what already exists and where this fits.
+- [docs/roadmap.md](https://github.com/edrisibra/counterpart/blob/main/docs/roadmap.md) lists what is out of scope, and
+  [limits_probe.py](https://github.com/edrisibra/counterpart/blob/main/examples/limits_probe.py) demonstrates it: no production monitoring, no
   agent identity, and a contract sees the payload, not the clock.
 
 ## Contributing
 
-Version 0.1.5, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.6, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
