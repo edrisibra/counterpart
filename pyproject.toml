@@ -1,6 +1,6 @@
 [project]
 name = "counterpart"
-version = "0.1.4"
+version = "0.1.5"
 description = "Mock the agent on the other end of an A2A call, including the ways it can go wrong."
 readme = "README.md"
 requires-python = ">=3.11"
