@@ -7,8 +7,9 @@
 
 ---
 
-[A2A](https://a2a-protocol.org/) lets one AI agent hand work to another. counterpart gives you
-misbehaving peers to test yours against, and contracts that catch the answers you cannot use:
+[A2A](https://a2a-protocol.org/) lets one AI agent hand work to another. counterpart plays the
+agent on the other side, from helpful to hostile, and catches the replies your code should never
+accept:
 
 ```python
 async def test_carrier_reports_success_with_no_price(mock_agent):
@@ -136,6 +137,6 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Contributing
 
-Version 0.1.12, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.13, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
