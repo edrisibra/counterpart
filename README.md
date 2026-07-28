@@ -5,12 +5,15 @@
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Mock [A2A](https://a2a-protocol.org/) counterparty agents, and verify what they send back.
+Test your [A2A](https://a2a-protocol.org/) agent against mocks that check for correct answers,
+not just completed tasks.
 
 If your agent delegates work to somebody else's agent, you cannot test it without them.
-counterpart gives you stand-in counterparties to point it at instead: ones that work, ones that
-stall, ones that come back with junk. It also checks the replies, so a peer that reports success
-while returning nothing usable fails your test rather than passing it.
+counterpart stands in for those agents: ones that work, ones that stall, ones that come back with
+junk. It works in both directions, so you can be the caller or the one being called.
+
+The reason it also reads the replies is that A2A only tells you a task finished. Finished and
+correct are different things, and only one of them is on the wire.
 
 ```bash
 pip install counterpart
@@ -111,17 +114,28 @@ Lax is the default on purpose. Plenty of real services send numbers as strings, 
 that rejects valid traffic gets switched off, which leaves you with nothing. Use `strict=True`
 when you control both ends or the format is pinned.
 
-## Exposing your own agent
+## Testing the other direction
 
-`wrap()` turns any callable, sync or async, into an A2A server you can point tests at.
+Everything above has your agent doing the calling. Sometimes you are the one being called, and
+you want to know your agent answers properly when somebody else's agent asks it something. The
+same mocks work as the caller.
+
+`wrap()` turns any callable, sync or async, into an A2A server, and the mock sends it work:
 
 ```python
-from counterpart import wrap
+from counterpart import MockAgent, wrap
+from counterpart.adapters.a2a.mockagent import serve_asgi
 
-app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])
+with serve_asgi(wrap(my_agent, name="quoting-agent")) as url:
+    peer = MockAgent("cooperative")
+    task = await peer.send_task(url, "Quote 2 pallets", contract={"price": float})
+
+assert not task.contract_violated      # your agent's own answer held up
 ```
 
-Run it with uvicorn, or skip the socket entirely with `A2AClient(app=app)`.
+The contract checks your agent this time, which is a quick way to catch your own service
+returning a completed task with nothing useful in it. Run the server with uvicorn instead if you
+want a long-lived one, or skip the socket with `A2AClient(app=app)`.
 
 ## Checking a live agent
 
@@ -199,7 +213,7 @@ function return.
 
 ## Status
 
-Version 0.1.2, built against A2A spec v1.0. The API will change. Apache-2.0.
+Version 0.1.3, built against A2A spec v1.0. The API will change. Apache-2.0.
 
 If you have hit this failure in something you built, I would like to hear about it. Open an
 issue with the shape of the response that fooled you.
