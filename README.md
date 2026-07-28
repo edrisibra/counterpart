@@ -5,12 +5,12 @@
 [![Python](https://img.shields.io/pypi/pyversions/counterpart.svg)](https://pypi.org/project/counterpart/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Test your agent against a peer that lies about finishing.
+Mock the [A2A](https://a2a-protocol.org/) agents your agent talks to.
 
-When your agent delegates work over [A2A](https://a2a-protocol.org/), a task reaching
-`completed` tells you the other agent stopped working. It does not tell you the work is any
-good. counterpart gives you counterparties that misbehave on purpose, and a way to check what
-they actually returned.
+If your agent delegates work to somebody else's agent, you cannot test it without them.
+counterpart gives you stand-in counterparties to point it at instead: ones that work, ones that
+stall, ones that come back with junk. It also checks the replies, so a peer that reports success
+while returning nothing usable fails your test rather than passing it.
 
 ```bash
 pip install counterpart
@@ -46,23 +46,27 @@ async with peer.client() as client:                    # one connection, several
     task = await client.reply(task, "Friday")
 ```
 
-## Why this exists
+## Why check the reply as well
 
-Multi-agent systems rarely fail by crashing. They fail when one agent finishes successfully and
-hands the next one something incomplete or wrong. Nothing raises, nothing gets logged, and you
-find out days later from a bad invoice or a denied claim. A study of multi-agent failures puts
-false success at 45 to 79 percent of them.
+Mocking the transport is the easy half. The reason counterpart also looks at content is that
+`completed` only tells you the other agent stopped working. Every one of these arrives as a
+completed task, and the protocol is satisfied by all of them:
 
-Conformance testing cannot see this, because the protocol behaved correctly. Evaluation
-platforms cannot either, because they simulate a user talking to your agent rather than a peer
-agent answering it. So the question nobody asks is the one that matters: the agent I delegated
-to says it finished, but can I use what it gave me?
+```python
+{"message": "Your quote is ready!"}          # reads fine, contains no price
+{"price": "call for rate"}                   # a sentence where you needed a number
+{"price": 1420.0, "account": "AC-99812"}     # right shape, somebody else's account
+{}                                           # nothing at all
+```
 
-Here is a real example. HL7's prior authorization standard publishes a sample response for a
-request that is still pending review. Its top level `outcome` field says `complete`. The
-approved sample says `complete` too. The two differ only in an optional code buried four levels
-deep, while the field that misleads you is the required one. Any client reading the obvious
-status field will schedule surgery against an authorization that does not exist.
+Your code then carries on with whatever it got. Nothing raised, nothing was logged, and the bad
+value is now three functions downstream or in an invoice. That is what makes these expensive to
+find: you are debugging backwards from a wrong number, days later, with no stack trace to start
+from. One study of multi-agent failures attributes 45 to 79 percent of them to this rather than
+to anything crashing.
+
+A contract is just you writing down what you were expecting, so the test fails at the point the
+peer lets you down instead of somewhere later.
 
 ## Personas
 
@@ -141,11 +145,14 @@ failure.
 and picks the cheapest usable one. The naive version books the carrier whose completed quote
 lists `price` as `"call for rate"`, and sends that string to invoicing.
 
-[Prior authorization](examples/prior_authorization.py) clears a procedure with a health
-insurer's eligibility and utilization management agents. It models 25 payer responses that all
-report `completed`, drawn from the X12 278 and FHIR Da Vinci specs and from billing forums.
-Each one is labelled by how well attested it is, and two are marked unattested because I could
-not find a real case for them.
+[Prior authorization](examples/prior_authorization.py) is a clinic getting a procedure approved
+by a health insurer before performing it, which is a real cross-company agent problem with money
+and patient safety attached. It models 25 insurer responses that all report `completed`, taken
+from the healthcare messaging standards and from billing forums where people describe what
+actually goes wrong. Each is labelled by how well attested it is, and two are marked unattested
+because I could not find a real case for them. One of them is worth the click: the standard's own
+published example of a *pending* decision reports success, with the only honest signal buried in
+an optional nested field.
 
 [Satellite downlink](examples/satellite_downlink.py) schedules a pass with a ground station
 network. Twelve plans that all validate and all describe a different physical reality: a window
@@ -156,13 +163,18 @@ where you need an earth fixed one. This is the failure that cost NASA the Mars C
 separate HTTP server, auth passed along the chain, twenty concurrent users, and corruption
 injected at the deepest hop. Corruption three hops away still gets caught at the top.
 
-Every one of them measures two things, and the second matters more. Every unusable answer has
-to be caught, and every legitimate variation has to be left alone. That second half is not
-theoretical. Researching the real X12 value sets turned up three bugs in these contracts, and
-all three were false positives: rejecting a valid `A1` certification, rejecting a member id
-that came back correct but with different padding, and comparing dates as strings so that
-`07/31/2026` quietly passed a check it should have failed. A later chaos run found a fourth.
-None of them was a missed catch. A contract that flags good traffic gets deleted in week two.
+Each one checks two things, and the second matters more. Every unusable answer has to be caught,
+and every legitimate answer has to be left alone.
+
+That second half is where the real difficulty turned out to be. Going through the actual industry
+value sets found four bugs in the contracts I had written for these examples, and every single one
+was a false positive. My checks were rejecting good answers: an approval code I had not thought to
+accept, an id that came back correct but padded with spaces, and a date compared as text so that
+`07/31/2026` slipped past a check it should have failed. None of the four was a missed catch.
+
+That is the trap with this kind of testing. Catching bad data is easy. A checker that also flags
+good data gets switched off, and then you are back to having none, so both examples test for false
+positives explicitly.
 
 ## What it does not do
 
