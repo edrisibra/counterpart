@@ -1,7 +1,7 @@
 [project]
 name = "counterpart"
-version = "0.1.15"
-description = "Mock misbehaving A2A peers, evaluate whether their answers are actually usable, and build A2A trust in a test environment without risk."
+version = "0.1.16"
+description = "Mock A2A peers, evaluate whether their answers are actually usable, and build A2A trust in a test environment without risk or infrastructure overhead."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "counterpart contributors" }]

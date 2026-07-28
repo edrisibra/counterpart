@@ -137,6 +137,6 @@ positives, checks rejecting good answers, and a checker that flags good data get
 
 ## Contributing
 
-Version 0.1.15, Apache-2.0, the API will change. If a peer's reply has fooled something you
+Version 0.1.16, Apache-2.0, the API will change. If a peer's reply has fooled something you
 built, open an [issue](https://github.com/edrisibra/counterpart/issues) with the shape of the
 payload. That is the most useful contribution this project can get.
