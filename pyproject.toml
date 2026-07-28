@@ -1,6 +1,6 @@
 [project]
 name = "counterpart"
-version = "0.1.0"
+version = "0.1.1"
 description = "Test your A2A agent against simulated counterparties that misbehave on purpose, then check what they actually returned."
 readme = "README.md"
 requires-python = ">=3.11"

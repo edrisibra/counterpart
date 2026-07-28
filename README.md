@@ -186,7 +186,7 @@ function return.
 
 ## Status
 
-Version 0.1.0, built against A2A spec v1.0. The API will change. Apache-2.0.
+Version 0.1.1, built against A2A spec v1.0. The API will change. Apache-2.0.
 
 If you have hit this failure in something you built, I would like to hear about it. Open an
 issue with the shape of the response that fooled you.
