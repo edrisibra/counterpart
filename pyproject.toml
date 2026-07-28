@@ -1,6 +1,6 @@
 [project]
 name = "counterpart"
-version = "0.1.7"
+version = "0.1.8"
 description = "Mock the agent on the other end of an A2A call, including the ways it can go wrong."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -41,6 +41,12 @@ dependencies = [
     "pyyaml>=6.0",
     "pytest-asyncio>=0.23",
 ]
+
+[project.urls]
+Homepage = "https://github.com/edrisibra/counterpart"
+Repository = "https://github.com/edrisibra/counterpart"
+Issues = "https://github.com/edrisibra/counterpart/issues"
+Documentation = "https://github.com/edrisibra/counterpart/tree/main/docs"
 
 [project.scripts]
 counterpart = "counterpart.cli.main:app"
