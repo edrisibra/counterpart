@@ -115,8 +115,9 @@ app = wrap(my_agent, name="quoting-agent", skills=["freight-quote"])  # an ASGI 
 
 ## Worked examples
 
-Two runnable scenarios in [`examples/`](examples), each in a vertical where A2A is genuinely
-warranted (the counterparty is a different company) and each with a different failure shape:
+Four runnable scenarios in [`examples/`](examples), each in a domain where A2A is genuinely
+warranted (the counterparty is operated by someone else) and each with a **different failure
+shape** — because the shape of the failure determines the shape of the check:
 
 | Example | Shape | What it shows |
 |---|---|---|
@@ -129,11 +130,15 @@ warranted (the counterparty is a different company) and each with a different fa
 uv run python examples/prior_authorization.py
 ```
 
-Both examples measure two things, and the second matters more: every unusable answer is caught,
-**and** legitimate counterparty variation is *not* flagged. Researching the real value sets for
-the prior-auth example found three bugs in those contracts — and every one was a false positive
-(rejecting a valid `A1` certification, rejecting a correctly-echoed member id, mis-parsing a
-date), not a miss. An over-strict contract gets switched off, which is worse than none.
+Every example measures two things, and the second matters more: every unusable answer is
+caught, **and** legitimate counterparty variation is *not* flagged.
+
+That second property is not theoretical. Researching the real X12 value sets for the prior-auth
+example found three bugs in those contracts, and **every one was a false positive** — rejecting
+a valid `A1` certification, rejecting a correctly-echoed member id, and mis-parsing a date so a
+`MM/DD/YYYY` value silently *passed*. A later end-to-end chaos run found a fourth. None was a
+missed catch; all four were the checker crying wolf. A contract that flags valid traffic gets
+switched off in week two, and then you have no contract at all.
 
 ## `check` and `attack` a live agent
 
