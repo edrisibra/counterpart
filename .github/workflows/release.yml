@@ -1,0 +1,43 @@
+name: Release
+
+# Publishes to PyPI when a v* tag is pushed, using PyPI Trusted Publishing (OIDC).
+# No API token is stored anywhere: PyPI verifies the workflow's identity directly.
+# One-time setup on pypi.org -> Publishing -> "Add a new pending publisher":
+#   PyPI project: counterpart | Owner: edrisibra | Repo: counterpart
+#   Workflow: release.yml     | Environment: pypi
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify before publishing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+
+  publish:
+    name: publish to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for Trusted Publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - name: Check metadata renders on PyPI
+        run: uvx twine check dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1
