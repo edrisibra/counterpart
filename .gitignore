@@ -10,3 +10,6 @@ build/
 .coverage
 htmlcov/
 uv.lock
+
+# scanner
+scanner/.venv/
